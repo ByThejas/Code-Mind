@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     max_index_bytes: int = 500_000_000
     max_job_seconds: int = 1_800
 
+    # A running job whose worker has not reported in for job_stale_seconds is treated as lost.
+    job_heartbeat_seconds: int = 30
+    job_stale_seconds: int = 300
+
     indexing_queue: str = "indexing"
     embedding_dimensions: int = 1024
 

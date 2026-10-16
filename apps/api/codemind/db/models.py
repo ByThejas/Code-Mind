@@ -225,3 +225,5 @@ class Job(UUIDPrimaryKey, Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+    # Written by the worker while it runs; a stale value means the worker died (indexing/recovery.py).
+    heartbeat_at: Mapped[datetime | None]

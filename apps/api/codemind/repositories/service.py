@@ -21,6 +21,7 @@ from codemind.db.models import (
     RepositorySnapshot,
     SnapshotStatus,
 )
+from codemind.indexing.recovery import reap_stale_jobs
 from codemind.repositories.github import GitHubClient, parse_repository_url
 
 Enqueue = Callable[[str], None]
@@ -85,7 +86,15 @@ def import_repository(
         repo.default_branch = meta.default_branch
         db.commit()
 
-    return request_index(db, repo, ref or target.ref, github=github, enqueue=enqueue, force=False)
+    return request_index(
+        db,
+        repo,
+        ref or target.ref,
+        github=github,
+        enqueue=enqueue,
+        settings=settings,
+        force=False,
+    )
 
 
 def request_index(
@@ -95,6 +104,7 @@ def request_index(
     *,
     github: GitHubClient,
     enqueue: Enqueue,
+    settings: Settings,
     force: bool,
 ) -> IndexRequest:
     requested_ref = ref or repo.default_branch
@@ -121,6 +131,8 @@ def request_index(
         .with_for_update()
     ).one()
 
+    # A job left running by a dead worker would otherwise block this commit forever.
+    reap_stale_jobs(db, settings, snapshot_id=snapshot.id)
     active = _active_job(db, snapshot.id)
     if active is not None:
         db.commit()

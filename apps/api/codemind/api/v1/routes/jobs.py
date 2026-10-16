@@ -7,10 +7,12 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from codemind.api.dependencies import get_current_workspace, get_db
+from codemind.core.config import settings
 from codemind.core.errors import CodemindError, NotFoundError
 from codemind.db.base import utcnow
 from codemind.db.models import Job, JobStatus, RepositorySnapshot, SnapshotStatus
 from codemind.indexing.queue import cancel_queued_job
+from codemind.indexing.recovery import reap_stale_jobs
 from codemind.schemas.ingestion import JobOut
 
 log = logging.getLogger(__name__)
@@ -23,7 +25,13 @@ WorkspaceId = Annotated[uuid.UUID, Depends(get_current_workspace)]
 
 @router.get("/{job_id}", response_model=JobOut)
 def get_job(job_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> Job:
-    return _owned_job(db, workspace_id, job_id)
+    job = _owned_job(db, workspace_id, job_id)
+    if job.status == JobStatus.RUNNING and reap_stale_jobs(
+        db, settings, snapshot_id=job.snapshot_id
+    ):
+        db.commit()
+        db.refresh(job)
+    return job
 
 
 @router.post("/{job_id}/cancel", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)

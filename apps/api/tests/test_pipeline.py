@@ -5,7 +5,6 @@ import respx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from codemind.core.config import Settings
 from codemind.core.errors import CodemindError
 from codemind.db.models import (
     DEFAULT_WORKSPACE_ID,
@@ -20,9 +19,10 @@ from codemind.db.models import (
 from codemind.indexing import pipeline
 from codemind.indexing.pipeline import IndexRun
 from codemind.repositories.github import GitHubClient
+from tests.conftest import TEST_SETTINGS
 from tests.fixtures import EXPECTED_EXCLUDED, EXPECTED_INCLUDED, SHA, make_tarball
 
-SETTINGS = Settings(max_file_bytes=5000, max_repository_files=100)
+SETTINGS = TEST_SETTINGS
 TARBALL_URL = f"https://api.github.com/repos/owner/repo/tarball/{SHA}"
 
 

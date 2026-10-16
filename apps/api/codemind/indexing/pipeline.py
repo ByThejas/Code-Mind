@@ -2,6 +2,10 @@
 
 Each run first deletes whatever an earlier attempt stored for the snapshot, so retries and manual
 re-indexes rewrite rows instead of duplicating them.
+
+While it runs, a heartbeat thread marks the job alive (indexing/recovery.py). If the job is reaped
+anyway (marked failed as stale while this worker was still going), the run notices at its next
+checkpoint and stops without writing, so it never mixes rows with the job that replaced it.
 """
 
 import logging
@@ -14,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from codemind.core.config import Settings
@@ -32,6 +36,7 @@ from codemind.db.models import (
 )
 from codemind.indexing.archive import ArchiveLimits, ScannedFile, count_entries, scan_archive
 from codemind.indexing.chunking import chunk_file
+from codemind.indexing.recovery import Heartbeat
 from codemind.parsing.treesitter import SUPPORTED_LANGUAGES, ParsedSymbol, parse_symbols
 from codemind.repositories.github import GitHubClient
 
@@ -44,6 +49,10 @@ PARTIAL_REASONS = ("too_large", "limit_reached")
 
 class JobCancelled(Exception):
     pass
+
+
+class JobLost(Exception):
+    """The job is no longer running in the database: it was reaped as stale."""
 
 
 @dataclass
@@ -77,40 +86,52 @@ class IndexRun:
 
     def run(self) -> None:
         with self.session_factory() as db:
-            job = db.get(Job, self.job_id)
+            # Locked so a concurrent reap cannot interleave with taking the job over.
+            job = db.get(Job, self.job_id, with_for_update=True)
             if job is None or job.status not in (JobStatus.QUEUED, JobStatus.RUNNING):
                 log.info("job %s is not runnable, skipping", self.job_id)
+                db.rollback()
                 return
             snapshot = db.get(RepositorySnapshot, job.snapshot_id)
             assert snapshot is not None
             try:
-                self._check_cancel(db, job)
-                job.status, job.stage = JobStatus.RUNNING, "resolve"
-                job.attempt += 1
-                job.started_at = job.started_at or utcnow()
-                job.error_code = job.error_message = None
-                snapshot.status = SnapshotStatus.FETCHING
-                db.commit()
+                self._run(db, job, snapshot)
+            except JobLost:
+                db.rollback()
+                log.warning("job %s was marked failed while running, stopping", self.job_id)
+
+    def _run(self, db: Session, job: Job, snapshot: RepositorySnapshot) -> None:
+        try:
+            job.status, job.stage = JobStatus.RUNNING, "resolve"
+            job.attempt += 1
+            job.started_at = job.started_at or utcnow()
+            job.heartbeat_at = func.now()
+            job.error_code = job.error_message = None
+            snapshot.status = SnapshotStatus.FETCHING
+            db.commit()
+            self._checkpoint(db, job)
+            with Heartbeat(job.id, self.session_factory, self.settings.job_heartbeat_seconds):
                 self._index(db, job, snapshot)
-            except JobCancelled:
-                db.rollback()
-                self._clear(db, snapshot.id)
-                self._finish(db, job, snapshot, JobStatus.CANCELLED, SnapshotStatus.CANCELLED)
-            except CodemindError as exc:
-                db.rollback()
-                self._fail(db, job, snapshot, exc)
-            except Exception as exc:
-                db.rollback()
-                log.exception("index job %s crashed", self.job_id)
-                self._fail(
-                    db,
-                    job,
-                    snapshot,
-                    CodemindError(
-                        "internal_error", "Indexing failed unexpectedly.", retryable=True
-                    ),
-                    cause=exc,
-                )
+        except JobLost:
+            raise
+        except JobCancelled:
+            db.rollback()
+            self._finish(
+                db, job, snapshot, JobStatus.CANCELLED, SnapshotStatus.CANCELLED, clear=True
+            )
+        except CodemindError as exc:
+            db.rollback()
+            self._fail(db, job, snapshot, exc)
+        except Exception as exc:
+            db.rollback()
+            log.exception("index job %s crashed", self.job_id)
+            self._fail(
+                db,
+                job,
+                snapshot,
+                CodemindError("internal_error", "Indexing failed unexpectedly.", retryable=True),
+                cause=exc,
+            )
 
     def _index(self, db: Session, job: Job, snapshot: RepositorySnapshot) -> None:
         repo = snapshot.repository
@@ -120,7 +141,7 @@ class IndexRun:
             with self.github_factory() as gh:
                 gh.download_tarball(repo.owner, repo.name, snapshot.commit_sha, archive)
             self._check_deadline()
-            self._check_cancel(db, job)
+            self._checkpoint(db, job)
 
             total_entries = count_entries(archive)
             snapshot.status = SnapshotStatus.INDEXING
@@ -226,7 +247,7 @@ class IndexRun:
 
     def _after_batch(self, db: Session, job: Job, totals: _Totals, total_entries: int) -> None:
         self._check_deadline()
-        self._check_cancel(db, job)
+        self._checkpoint(db, job)
         if time.monotonic() - self._last_progress >= 1.0:
             pct = 5 + int(90 * totals.files / max(total_entries, 1))
             self._stage(db, job, "store", min(pct, 95))
@@ -240,14 +261,23 @@ class IndexRun:
         if time.monotonic() > self.deadline:
             raise CodemindError("job_timeout", "Indexing took longer than the allowed time.")
 
-    def _check_cancel(self, db: Session, job: Job) -> None:
-        requested = db.scalar(select(Job.cancel_requested).where(Job.id == job.id))
-        if requested:
+    def _checkpoint(self, db: Session, job: Job) -> None:
+        status, cancel_requested = db.execute(
+            select(Job.status, Job.cancel_requested).where(Job.id == job.id)
+        ).one()
+        if status != JobStatus.RUNNING:
+            raise JobLost
+        if cancel_requested:
             raise JobCancelled
+
+    def _claim(self, db: Session, job: Job) -> None:
+        """Lock the job row until the next commit, after checking this run still owns it."""
+        status = db.scalar(select(Job.status).where(Job.id == job.id).with_for_update())
+        if status != JobStatus.RUNNING:
+            raise JobLost
 
     def _clear(self, db: Session, snapshot_id: uuid.UUID) -> None:
         db.execute(delete(File).where(File.snapshot_id == snapshot_id))
-        db.commit()
 
     def _fail(
         self,
@@ -257,14 +287,14 @@ class IndexRun:
         exc: CodemindError,
         cause: Exception | None = None,
     ) -> None:
+        self._claim(db, job)
         job.error_code, job.error_message = exc.code, exc.message
         if exc.retryable and not self.final_attempt:
             job.status, job.stage = JobStatus.QUEUED, "retry"
             snapshot.status = SnapshotStatus.QUEUED
             db.commit()
             raise exc from cause  # RQ schedules the retry
-        self._clear(db, snapshot.id)
-        self._finish(db, job, snapshot, JobStatus.FAILED, SnapshotStatus.FAILED)
+        self._finish(db, job, snapshot, JobStatus.FAILED, SnapshotStatus.FAILED, clear=True)
 
     def _finish(
         self,
@@ -273,7 +303,12 @@ class IndexRun:
         snapshot: RepositorySnapshot,
         job_status: JobStatus,
         snapshot_status: SnapshotStatus,
+        *,
+        clear: bool = False,
     ) -> None:
+        self._claim(db, job)
+        if clear:
+            self._clear(db, snapshot.id)
         job.status, snapshot.status = job_status, snapshot_status
         if job_status == JobStatus.SUCCEEDED:
             job.progress = 100
