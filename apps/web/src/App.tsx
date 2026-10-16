@@ -13,8 +13,12 @@ import {
   Terminal,
 } from "lucide-react";
 
+import { api } from "./api";
 import IntroExperience from "./components/IntroExperience";
+import AIEngineerPage from "./pages/AIEngineerPage";
+import RepositoriesPage from "./pages/RepositoriesPage";
 import "./index.css";
+import "./pages/pages.css";
 
 type BackendStatus = "checking" | "connected" | "disconnected";
 
@@ -26,15 +30,15 @@ function App() {
 
   const [activePage, setActivePage] = useState("Overview");
 
+  const [selectedRepositoryId, setSelectedRepositoryId] = useState<
+    string | null
+  >(null);
+
   async function checkBackend() {
     setBackendStatus("checking");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/health");
-
-      if (!response.ok) {
-        throw new Error("Backend request failed");
-      }
+      await api.health();
 
       setBackendStatus("connected");
     } catch {
@@ -378,6 +382,18 @@ function App() {
                 </article>
               </div>
             </>
+          ) : activePage === "Repositories" ? (
+            <RepositoriesPage
+              onAsk={(repositoryId) => {
+                setSelectedRepositoryId(repositoryId);
+                navigateTo("AI Engineer");
+              }}
+            />
+          ) : activePage === "AI Engineer" ? (
+            <AIEngineerPage
+              repositoryId={selectedRepositoryId}
+              onSelectRepository={setSelectedRepositoryId}
+            />
           ) : (
             <div className="welcome-row">
               <div>
