@@ -103,7 +103,9 @@ def index_repository(
     """Index the default branch head, or `ref`. Idempotent per commit unless `force` is set."""
     body = body or IndexRepositoryRequest()
     repo = get_owned_repository(db, workspace_id, repository_id)
-    result = request_index(db, repo, body.ref, github=github, enqueue=enqueue, force=body.force)
+    result = request_index(
+        db, repo, body.ref, github=github, enqueue=enqueue, settings=settings, force=body.force
+    )
     return _index_response(result, response)
 
 

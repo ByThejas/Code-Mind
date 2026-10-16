@@ -106,6 +106,13 @@ Failed jobs land in RQ's failed registry, which is our dead-letter queue.
 **Cancellation.** `POST /jobs/{id}/cancel` sets `cancel_requested`; the worker checks it between stages and every
 file batch, then marks job and snapshot `cancelled` and cleans up. Queued jobs are also removed from RQ.
 
+**Crashed workers.** While a job runs, a background thread in the worker writes `jobs.heartbeat_at` every
+`JOB_HEARTBEAT_SECONDS` (30). A `running` job with no heartbeat for `JOB_STALE_SECONDS` (300) is treated as lost:
+it is marked `failed` with `error_code = worker_lost`, its snapshot is cleared and marked `failed`, and the commit
+can be indexed again. Stale jobs are reaped when someone re-imports or re-indexes that commit, when
+`GET /jobs/{id}` reads one, and when a worker starts. Times come from the database clock. If a reaped worker was
+only slow, it sees at its next checkpoint that it no longer owns the job and stops without writing.
+
 **Progress.** The worker updates `jobs.stage/progress` at most once per second (files processed / files total
 during parse+store). The UI polls `GET /jobs/{id}` (TanStack Query, ~2 s); SSE can come later if polling feels slow.
 

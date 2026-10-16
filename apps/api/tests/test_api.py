@@ -1,56 +1,13 @@
 import uuid
-from collections.abc import Iterator
 
-import pytest
-import respx
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-from codemind.api.dependencies import get_db, get_enqueue, get_github
 from codemind.db.models import Repository, Workspace
 from codemind.indexing.pipeline import IndexRun
-from codemind.main import app
 from codemind.repositories.github import GitHubClient
-from tests.fixtures import SHA, SHA2, make_tarball
+from tests.fixtures import SHA, SHA2
 from tests.test_pipeline import SETTINGS
-
-API = "https://api.github.com"
-REPO_JSON = {
-    "owner": {"login": "owner"},
-    "name": "repo",
-    "default_branch": "main",
-    "private": False,
-    "size": 10,
-}
-
-
-@pytest.fixture
-def enqueued() -> list[str]:
-    return []
-
-
-@pytest.fixture
-def client(session_factory: sessionmaker[Session], enqueued: list[str]) -> Iterator[TestClient]:
-    def db() -> Iterator[Session]:
-        with session_factory() as session:
-            yield session
-
-    def github() -> Iterator[GitHubClient]:
-        with GitHubClient(SETTINGS) as gh:
-            yield gh
-
-    app.dependency_overrides.update(
-        {get_db: db, get_github: github, get_enqueue: lambda: enqueued.append}
-    )
-    with respx.mock(assert_all_called=False) as mock:
-        mock.get(f"{API}/repos/owner/repo").respond(json=REPO_JSON)
-        mock.get(f"{API}/repos/owner/repo/commits/main").respond(json={"sha": SHA})
-        mock.get(f"{API}/repos/owner/repo/commits/v2").respond(json={"sha": SHA2})
-        mock.get(f"{API}/repos/owner/repo/tarball/{SHA}").respond(content=make_tarball())
-        mock.get(f"{API}/repos/owner/private").respond(json=REPO_JSON | {"private": True})
-        mock.route(host="testserver").pass_through()
-        yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 def _work(session_factory: sessionmaker[Session], enqueued: list[str]) -> None:
