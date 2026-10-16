@@ -77,6 +77,10 @@ ruff check .
 mypy codemind
 ```
 
-Database tests run against `TEST_DATABASE_URL` (default: the `codemind_test` database on the local compose Postgres; create it once with `docker compose exec postgres createdb -U codemind codemind_test`). They are skipped when Postgres is not reachable. Each run drops and recreates that database's schema, so never point it at real data.
+Database tests run against `TEST_DATABASE_URL` (default: the `codemind_test` database on the local compose Postgres; create it once with `docker compose exec postgres createdb -U codemind codemind_test`). They are skipped when Postgres is not reachable, except in CI (when `CI` is set), where an unreachable database fails the run instead. Each run drops and recreates that database's schema, so never point it at real data.
 
 From `apps/web`, `npm run build` type-checks and produces a production build in `dist/`.
+
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `main`. The API job runs `ruff check`, `ruff format --check`, `mypy codemind` and `pytest` against a pgvector Postgres service; the web job runs `npm ci` and `npm run build` (TypeScript check plus Vite build).
