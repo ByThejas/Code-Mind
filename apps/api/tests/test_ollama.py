@@ -29,7 +29,8 @@ def no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_factories_follow_settings() -> None:
     assert isinstance(get_embedding_provider(SETTINGS), OllamaEmbeddings)
     assert isinstance(get_answer_model(SETTINGS), OllamaAnswerModel)
-    assert get_embedding_provider(Settings()) is None and get_answer_model(Settings()) is None
+    defaults = Settings(_env_file=None)  # ignore a developer's local .env
+    assert get_embedding_provider(defaults) is None and get_answer_model(defaults) is None
 
 
 @respx.mock
