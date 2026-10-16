@@ -30,7 +30,7 @@ def list_files(
     cursor: Annotated[str | None, Query(max_length=4000, description="Last path seen.")] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> FileList:
-    snapshot = _servable_snapshot(db, workspace_id, repository_id, snapshot_id)
+    snapshot = servable_snapshot(db, workspace_id, repository_id, snapshot_id)
     query = select(File).where(File.snapshot_id == snapshot.id)
     if path_prefix:
         escaped = path_prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -60,7 +60,7 @@ def read_file(
     end_line: Annotated[int | None, Query(ge=1)] = None,
 ) -> FileContentOut:
     """Return a line range of an indexed file, at most 2,000 lines per request."""
-    snapshot = _servable_snapshot(db, workspace_id, repository_id, snapshot_id)
+    snapshot = servable_snapshot(db, workspace_id, repository_id, snapshot_id)
     file = db.scalar(select(File).where(File.snapshot_id == snapshot.id, File.path == path))
     if file is None:
         raise NotFoundError("file_not_found", "No file with that path in this snapshot.")
@@ -88,7 +88,7 @@ def read_file(
     )
 
 
-def _servable_snapshot(
+def servable_snapshot(
     db: Session, workspace_id: uuid.UUID, repository_id: uuid.UUID, snapshot_id: uuid.UUID | None
 ) -> RepositorySnapshot:
     repo = get_owned_repository(db, workspace_id, repository_id)

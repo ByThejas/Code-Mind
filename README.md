@@ -10,7 +10,7 @@ This repository is early: a FastAPI backend that can import a public GitHub repo
 apps/
   api/   FastAPI backend (Python 3.12+)
   web/   React + Vite + Three.js frontend
-docs/                Design notes (see ingestion-design.md)
+docs/                Design notes (ingestion-design.md, retrieval-design.md)
 docker-compose.yml   Postgres 16 with pgvector, Redis 7
 ```
 
@@ -56,6 +56,26 @@ curl -X POST localhost:8000/api/v1/repositories \
 The response holds the pinned `commit_sha` and a job. Poll `GET /api/v1/jobs/{id}` until it reports `succeeded`, then browse with `GET /api/v1/repositories/{id}/files` and `GET /api/v1/repositories/{id}/files/content?path=...`. The design is in [docs/ingestion-design.md](docs/ingestion-design.md).
 
 To try fetching and filtering without the database or worker, run `python scripts/spike_fetch.py owner/repo`.
+
+### Ask questions about it
+
+Search and answers use free local models served by [Ollama](https://ollama.com); no API keys and no per-call cost. Install Ollama, then pull the two models once (about 6 GB; the answer model wants roughly 8 GB of RAM):
+
+```bash
+ollama pull bge-m3            # embeddings for semantic search
+ollama pull qwen2.5-coder:7b  # answers
+```
+
+Set `EMBEDDING_PROVIDER=ollama` and `LLM_PROVIDER=ollama` in `.env` (see `.env.example`), restart the API and worker, and index (or re-index with `{"force": true}`) so chunks get embeddings. Then:
+
+```bash
+curl 'localhost:8000/api/v1/repositories/{id}/search?q=how+are+jobs+retried'
+curl -X POST localhost:8000/api/v1/repositories/{id}/investigations \
+  -H 'content-type: application/json' \
+  -d '{"question": "How are failed indexing jobs retried?"}'
+```
+
+An investigation returns a short answer whose claims cite evidence ids; each evidence item has the file path, line range and text from the indexed commit, and claims whose citations do not check out are marked `unverified`. Past questions are listed at `GET /api/v1/repositories/{id}/investigations`. Without Ollama, search still works on keywords and symbol names, and investigations return `answer_model_not_configured`. Code is only sent to the local Ollama server. The design is in [docs/retrieval-design.md](docs/retrieval-design.md).
 
 ### 3. Run the web app
 

@@ -24,7 +24,8 @@ TEST_DATABASE_URL = os.environ.get(
 )
 TEST_SETTINGS = Settings(max_file_bytes=5000, max_repository_files=100)
 TABLES = (
-    "jobs, embeddings, chunks, symbols, file_contents, files, repository_snapshots, repositories"
+    "investigations, jobs, embeddings, chunks, symbols, file_contents, files, "
+    "repository_snapshots, repositories"
 )
 
 
