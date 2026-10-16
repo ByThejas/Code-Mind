@@ -45,6 +45,24 @@ The API serves on http://localhost:8000. Try `GET /health`, or open http://local
 
 Settings are read from the root `.env` file; copy `.env.example` to start. `GITHUB_TOKEN` is optional: public repositories work without it, but GitHub then allows only 60 API requests an hour. See `apps/api/codemind/core/config.py` for every setting and its default.
 
+#### On Windows
+
+The same steps work in PowerShell with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Python 3.12+ and Node 20+. Only these commands differ:
+
+```powershell
+copy .env.example .env                 # from the repository root
+cd apps\api
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1             # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -e ".[dev]"
+alembic upgrade head
+uvicorn codemind.main:app --reload
+```
+
+Start the worker with `python worker.py` in a second PowerShell window after running `.venv\Scripts\Activate.ps1` there too. Windows cannot fork, so there the worker runs each job inside its own process instead of a forked child; if a job crashes it, restart the worker; within a few minutes the job is marked `worker_lost` and the repository can be indexed again. The `curl` examples below use bash quoting, so on Windows use the web app or the interactive docs at http://localhost:8000/docs instead. Ollama has a Windows installer at https://ollama.com/download.
+
+If the API, `alembic` or the worker fails with `password authentication failed for user "codemind"`, something other than the compose container is answering on port 5432, usually a PostgreSQL installed directly on Windows. `Get-Process -Id (Get-NetTCPConnection -LocalPort 5432 -State Listen).OwningProcess` shows which program owns the port: `postgres` means a native install, while `com.docker.backend` or `wslrelay` means Docker. For a native install, set `POSTGRES_PORT=5433` in `.env`, change the port in `DATABASE_URL` to 5433, then run `docker compose up -d`. If Docker owns the port, the database volume was created earlier with a different password; `docker compose down -v` followed by `docker compose up -d` recreates it empty.
+
 ### Index a repository
 
 ```bash

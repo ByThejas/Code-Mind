@@ -1,8 +1,9 @@
 """Indexing worker: `python worker.py` (from apps/api) runs one RQ worker on the indexing queue."""
 
 import logging
+import sys
 
-from rq import Worker
+from rq import SimpleWorker, Worker
 
 from codemind.core.config import settings
 from codemind.db.session import get_session_factory
@@ -15,4 +16,6 @@ if __name__ == "__main__":
         reap_stale_jobs(db, settings)
         db.commit()
     queue = get_queue()
-    Worker([queue], connection=queue.connection, name=None).work(with_scheduler=True)
+    # Windows has no os.fork(), so run each job in this process there instead of a forked child.
+    worker_class = SimpleWorker if sys.platform == "win32" else Worker
+    worker_class([queue], connection=queue.connection, name=None).work(with_scheduler=True)
