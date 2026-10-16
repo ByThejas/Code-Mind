@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from codemind.api.v1.health import router as health_router
 from codemind.core.config import settings
 
 app = FastAPI(
@@ -32,7 +33,4 @@ def root() -> dict[str, str]:
     }
 
 
-@app.get("/health", tags=["Health"])
-def health() -> dict[str, str]:
-    """Check whether the API process is responding."""
-    return {"status": "healthy"}
+app.include_router(health_router)
