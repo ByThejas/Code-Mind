@@ -174,7 +174,7 @@ class Symbol(UUIDPrimaryKey, Base):
 
 
 class Embedding(Base):
-    """Filled in Phase 4. The dimension is fixed per deployment by EMBEDDING_DIMENSIONS."""
+    """Written by the index job's embed stage. The dimension is fixed by EMBEDDING_DIMENSIONS."""
 
     __tablename__ = "embeddings"
     __table_args__ = (
@@ -227,3 +227,36 @@ class Job(UUIDPrimaryKey, Base):
     finished_at: Mapped[datetime | None]
     # Written by the worker while it runs; a stale value means the worker died (indexing/recovery.py).
     heartbeat_at: Mapped[datetime | None]
+
+
+class InvestigationStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class Investigation(UUIDPrimaryKey, Base):
+    """One question asked of a snapshot, with its validated answer, evidence and audit metadata."""
+
+    __tablename__ = "investigations"
+    __table_args__ = (Index("ix_investigations_repository_created", "repository_id", "created_at"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE")
+    )
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repository_snapshots.id", ondelete="CASCADE")
+    )
+    question: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20))
+    answer: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    evidence: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    validation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(60))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    # Prompt version, models, retrieval settings, candidate counts, tokens, duration (FR-11).
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    finished_at: Mapped[datetime | None]

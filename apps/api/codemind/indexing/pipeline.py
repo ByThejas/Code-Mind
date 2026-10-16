@@ -36,8 +36,10 @@ from codemind.db.models import (
 )
 from codemind.indexing.archive import ArchiveLimits, ScannedFile, count_entries, scan_archive
 from codemind.indexing.chunking import chunk_file
+from codemind.indexing.embedding import EmbedResult, embed_snapshot
 from codemind.indexing.recovery import Heartbeat
 from codemind.parsing.treesitter import SUPPORTED_LANGUAGES, ParsedSymbol, parse_symbols
+from codemind.providers import EmbeddingProvider
 from codemind.repositories.github import GitHubClient
 
 log = logging.getLogger(__name__)
@@ -45,6 +47,8 @@ log = logging.getLogger(__name__)
 BATCH_FILES = 200
 # Reasons that mean some indexable code was skipped, so the snapshot is "partial".
 PARTIAL_REASONS = ("too_large", "limit_reached")
+# Warnings that do not make a snapshot partial: all code is indexed and keyword search covers it.
+NON_PARTIAL_WARNINGS = ("embeddings_incomplete",)
 
 
 class JobCancelled(Exception):
@@ -75,14 +79,17 @@ class IndexRun:
         github_factory: Callable[[], GitHubClient],
         settings: Settings,
         final_attempt: bool = True,
+        embedder_factory: Callable[[], EmbeddingProvider | None] = lambda: None,
     ) -> None:
         self.job_id = job_id
         self.session_factory = session_factory
         self.github_factory = github_factory
+        self.embedder_factory = embedder_factory
         self.settings = settings
         self.final_attempt = final_attempt
         self.deadline = time.monotonic() + settings.max_job_seconds
         self._last_progress = 0.0
+        self._store_span = 90  # progress points for parse/store; the embed stage takes the rest
 
     def run(self) -> None:
         with self.session_factory() as db:
@@ -135,6 +142,9 @@ class IndexRun:
 
     def _index(self, db: Session, job: Job, snapshot: RepositorySnapshot) -> None:
         repo = snapshot.repository
+        embedder = self.embedder_factory()
+        if embedder is not None:
+            self._store_span = 65
         with tempfile.TemporaryDirectory(prefix="codemind-") as tmp:
             archive = Path(tmp) / "repo.tar.gz"
             self._stage(db, job, "fetch", 0)
@@ -161,7 +171,8 @@ class IndexRun:
             if batch:
                 self._store(db, snapshot.id, batch, totals)
             totals.truncated = totals.files < total_entries
-            self._stage(db, job, "finalize", 99)
+        embedded = self._embed(db, job, snapshot.id, embedder) if embedder else None
+        self._stage(db, job, "finalize", 99)
 
         snapshot.stats = {
             "files_total": totals.files,
@@ -172,7 +183,14 @@ class IndexRun:
             "parse_errors": len(totals.parse_error_paths),
         }
         snapshot.warnings = _warnings(totals)
-        partial = bool(snapshot.warnings)
+        partial = any(w["code"] not in NON_PARTIAL_WARNINGS for w in snapshot.warnings)
+        if embedder is not None and embedded is not None:
+            snapshot.stats |= {
+                "embeddings": embedded.embedded,
+                "embedding_model": embedder.model_name,
+            }
+            if embedded.error_code:
+                snapshot.warnings.append(_embedding_warning(embedded))
         snapshot.indexed_at = utcnow()
         self._finish(
             db,
@@ -249,8 +267,28 @@ class IndexRun:
         self._check_deadline()
         self._checkpoint(db, job)
         if time.monotonic() - self._last_progress >= 1.0:
-            pct = 5 + int(90 * totals.files / max(total_entries, 1))
-            self._stage(db, job, "store", min(pct, 95))
+            pct = 5 + int(self._store_span * totals.files / max(total_entries, 1))
+            self._stage(db, job, "store", min(pct, 5 + self._store_span))
+
+    def _embed(
+        self, db: Session, job: Job, snapshot_id: uuid.UUID, embedder: EmbeddingProvider
+    ) -> EmbedResult:
+        start = 5 + self._store_span
+        self._stage(db, job, "embed", start)
+
+        def after_batch(done: int, total: int) -> None:
+            self._checkpoint(db, job)
+            self._check_deadline()
+            if time.monotonic() - self._last_progress >= 1.0:
+                self._stage(db, job, "embed", start + int((98 - start) * done / max(total, 1)))
+
+        return embed_snapshot(
+            db,
+            snapshot_id,
+            embedder,
+            batch_size=self.settings.embedding_batch_size,
+            after_batch=after_batch,
+        )
 
     def _stage(self, db: Session, job: Job, stage: str, progress: int) -> None:
         job.stage, job.progress = stage, progress
@@ -334,6 +372,17 @@ def _symbol_rows(
         }
         for s in symbols  # source order, so parents are inserted before children
     ]
+
+
+def _embedding_warning(result: EmbedResult) -> dict[str, Any]:
+    return {
+        "code": "embeddings_incomplete",
+        "count": result.total - result.embedded,
+        "message": "Some chunks have no embedding, so semantic search misses them. "
+        "Re-index with force to retry.",
+        "error_code": result.error_code,
+        "error_message": result.error_message,
+    }
 
 
 def _warnings(totals: _Totals) -> list[dict[str, Any]]:

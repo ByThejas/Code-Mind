@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -45,7 +46,19 @@ class Settings(BaseSettings):
     job_stale_seconds: int = 300
 
     indexing_queue: str = "indexing"
+
+    # Retrieval and answers (docs/retrieval-design.md). "none" keeps keyword search working without
+    # a model; "ollama" uses free local models served by Ollama.
+    ollama_url: str = "http://localhost:11434"
+    embedding_provider: Literal["none", "ollama"] = "none"
+    embedding_model: str = "bge-m3"
     embedding_dimensions: int = 1024
+    embedding_batch_size: int = 64
+    llm_provider: Literal["none", "ollama"] = "none"
+    llm_model: str = "qwen2.5-coder:7b"
+    llm_context_tokens: int = 16_384
+    llm_timeout_seconds: float = 300
+    answer_context_tokens: int = 8_000
 
 
 @lru_cache

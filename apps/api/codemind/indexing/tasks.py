@@ -7,6 +7,7 @@ from rq import get_current_job
 from codemind.core.config import settings
 from codemind.db.session import get_session_factory
 from codemind.indexing.pipeline import IndexRun
+from codemind.providers import get_embedding_provider
 from codemind.repositories.github import GitHubClient
 
 
@@ -19,4 +20,5 @@ def index_snapshot(job_id: str) -> None:
         github_factory=lambda: GitHubClient(settings),
         settings=settings,
         final_attempt=final_attempt,
+        embedder_factory=lambda: get_embedding_provider(settings),
     ).run()
