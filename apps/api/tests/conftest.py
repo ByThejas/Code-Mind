@@ -26,6 +26,8 @@ def migrated_engine():
         with engine.connect():
             pass
     except OperationalError:
+        if os.environ.get("CI"):
+            raise
         pytest.skip("Postgres is not reachable; set TEST_DATABASE_URL to run database tests")
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
