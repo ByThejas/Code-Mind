@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
@@ -23,13 +23,25 @@ class Settings(BaseSettings):
     debug: bool = True
 
     database_url: str = (
-        "postgresql+psycopg://codemind:local_password_change_me"
-        "@localhost:5432/codemind"
+        "postgresql+psycopg://codemind:local_password_change_me@localhost:5432/codemind"
     )
 
     redis_url: str = "redis://localhost:6379/0"
 
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    # Optional read-only token. Raises the GitHub API limit from 60 to 5,000 requests/hour.
+    github_token: SecretStr | None = None
+    github_api_url: str = "https://api.github.com"
+
+    # Ingestion limits (blueprint §18.3 defaults).
+    max_repository_files: int = 20_000
+    max_file_bytes: int = 1_000_000
+    max_index_bytes: int = 500_000_000
+    max_job_seconds: int = 1_800
+
+    indexing_queue: str = "indexing"
+    embedding_dimensions: int = 1024
 
 
 @lru_cache
