@@ -321,7 +321,7 @@ def test_investigation_endpoints(client, session_factory, enqueued, providers, d
     assert body["validation"]["unknown_evidence_ids"] == ["ev_42"]
     assert "ev_1" in {e["id"] for e in body["evidence"]}
     meta = body["metadata"]
-    assert meta["prompt_version"] == "qa-v1" and meta["answer_model"] == "test-model"
+    assert meta["prompt_version"] == "qa-v2" and meta["answer_model"] == "test-model"
     assert meta["retrieval"]["vector_search"] == "used" and meta["input_tokens"] == 100
     system, user = model.prompts[0]
     assert "untrusted" in system and '<evidence id="ev_1" path="src/app.py"' in user

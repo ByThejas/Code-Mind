@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Computed,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -171,6 +172,39 @@ class Symbol(UUIDPrimaryKey, Base):
     kind: Mapped[str] = mapped_column(String(20))
     start_line: Mapped[int] = mapped_column(Integer)
     end_line: Mapped[int] = mapped_column(Integer)
+
+
+class GraphEdge(UUIDPrimaryKey, Base):
+    """A relationship found by static analysis of one snapshot (docs/graph-design.md).
+
+    `imports` edges link files (no symbols); `calls`, `extends` and `implements` link symbols, with
+    `source_symbol_id` None for code at module level. Edges never span snapshots.
+    """
+
+    __tablename__ = "graph_edges"
+    __table_args__ = (
+        Index("ix_graph_edges_snapshot_source_symbol", "snapshot_id", "source_symbol_id"),
+        Index("ix_graph_edges_snapshot_target_symbol", "snapshot_id", "target_symbol_id"),
+        Index("ix_graph_edges_snapshot_source_file", "snapshot_id", "source_file_id"),
+        Index("ix_graph_edges_snapshot_target_file", "snapshot_id", "target_file_id"),
+    )
+
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repository_snapshots.id", ondelete="CASCADE")
+    )
+    relation: Mapped[str] = mapped_column(String(20))
+    source_file_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("files.id", ondelete="CASCADE"))
+    source_symbol_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="CASCADE")
+    )
+    target_file_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("files.id", ondelete="CASCADE"))
+    target_symbol_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="CASCADE")
+    )
+    line: Mapped[int] = mapped_column(Integer)  # where the source names the target
+    resolution: Mapped[str] = mapped_column(String(10))  # "static" | "inferred"
+    confidence: Mapped[float] = mapped_column(Float)
+    provenance: Mapped[str] = mapped_column(String(80))  # parser, language and resolution rule
 
 
 class Embedding(Base):

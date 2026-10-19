@@ -30,6 +30,7 @@ const STAGE_LABELS: Record<string, string> = {
   filter: "Filtering files",
   parse: "Parsing files",
   store: "Storing files and chunks",
+  graph: "Linking calls and imports",
   embed: "Embedding chunks",
   finalize: "Finishing up",
   retry: "Waiting to retry",
