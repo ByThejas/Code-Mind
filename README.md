@@ -10,7 +10,7 @@ This repository is early: a FastAPI backend that can import a public GitHub repo
 apps/
   api/   FastAPI backend (Python 3.12+)
   web/   React + Vite + Three.js frontend
-docs/                Design notes (ingestion-design.md, retrieval-design.md)
+docs/                Design notes (ingestion-design.md, retrieval-design.md, graph-design.md)
 docker-compose.yml   Postgres 16 with pgvector, Redis 7
 ```
 
@@ -94,6 +94,19 @@ curl -X POST localhost:8000/api/v1/repositories/{id}/investigations \
 ```
 
 An investigation returns a short answer whose claims cite evidence ids; each evidence item has the file path, line range and text from the indexed commit, and claims whose citations do not check out are marked `unverified`. Past questions are listed at `GET /api/v1/repositories/{id}/investigations`. Without Ollama, search still works on keywords and symbol names, and investigations return `answer_model_not_configured`. Code is only sent to the local Ollama server. The design is in [docs/retrieval-design.md](docs/retrieval-design.md).
+
+### See how the code connects
+
+Indexing also builds a code graph for Python, TypeScript and JavaScript: which files import which, which functions call which, and which classes extend which. Each link records the file and line it came from, whether it is `static` (the code names the target directly) or `inferred` (a best guess), and a confidence. Questions about flows ("what happens when `create_order` is called?") use it to pull in the code on the other side of each call.
+
+```bash
+curl 'localhost:8000/api/v1/repositories/{id}/symbols?q=place_order'
+curl 'localhost:8000/api/v1/repositories/{id}/symbols/{symbol_id}'            # callers and callees
+curl 'localhost:8000/api/v1/repositories/{id}/graph/trace?from_symbol_id=...&to_symbol_id=...'
+curl 'localhost:8000/api/v1/repositories/{id}/graph/modules?depth=2'          # imports between folders
+```
+
+`GET /graph/neighborhood?symbol_id=...` (or `?path=...` for a file's imports) returns the nearby graph as nodes and edges. Repositories indexed before the graph existed report `graph.available: false`; re-index them with `{"force": true}` (in the web app: Re-index, then Re-index anyway). The design, resolution rules and benchmark are in [docs/graph-design.md](docs/graph-design.md).
 
 ### 3. Run the web app
 
