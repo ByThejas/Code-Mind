@@ -1,4 +1,4 @@
-"""The index_snapshot job: fetch a pinned commit, filter, parse, chunk and store it.
+"""The index_snapshot job: fetch a pinned commit, filter, parse, chunk, link and store it.
 
 Each run first deletes whatever an earlier attempt stored for the snapshot, so retries and manual
 re-indexes rewrite rows instead of duplicating them.
@@ -28,27 +28,45 @@ from codemind.db.models import (
     Chunk,
     File,
     FileContent,
+    GraphEdge,
     Job,
     JobStatus,
     RepositorySnapshot,
     SnapshotStatus,
     Symbol,
 )
+from codemind.graph.build import (
+    FileGraphInput,
+    GraphBuild,
+    Reference,
+    SymbolNode,
+    build_graph,
+)
 from codemind.indexing.archive import ArchiveLimits, ScannedFile, count_entries, scan_archive
 from codemind.indexing.chunking import chunk_file
 from codemind.indexing.embedding import EmbedResult, embed_snapshot
 from codemind.indexing.recovery import Heartbeat
-from codemind.parsing.treesitter import SUPPORTED_LANGUAGES, ParsedSymbol, parse_symbols
+from codemind.parsing.treesitter import (
+    SUPPORTED_LANGUAGES,
+    ParsedSymbol,
+    ParseResult,
+    parse_symbols,
+)
 from codemind.providers import EmbeddingProvider
 from codemind.repositories.github import GitHubClient
 
 log = logging.getLogger(__name__)
 
 BATCH_FILES = 200
+EDGE_BATCH = 5000
 # Reasons that mean some indexable code was skipped, so the snapshot is "partial".
 PARTIAL_REASONS = ("too_large", "limit_reached")
 # Warnings that do not make a snapshot partial: all code is indexed and keyword search covers it.
-NON_PARTIAL_WARNINGS = ("embeddings_incomplete",)
+NON_PARTIAL_WARNINGS = (
+    "embeddings_incomplete",
+    "graph_dynamic_imports",
+    "graph_unresolved_imports",
+)
 
 
 class JobCancelled(Exception):
@@ -68,6 +86,7 @@ class _Totals:
     excluded: Counter[str] = field(default_factory=Counter)
     parse_error_paths: list[str] = field(default_factory=list)
     truncated: bool = False
+    graph_inputs: list[FileGraphInput] = field(default_factory=list)
 
 
 class IndexRun:
@@ -171,6 +190,7 @@ class IndexRun:
             if batch:
                 self._store(db, snapshot.id, batch, totals)
             totals.truncated = totals.files < total_entries
+        graph = self._link(db, job, snapshot.id, totals)
         embedded = self._embed(db, job, snapshot.id, embedder) if embedder else None
         self._stage(db, job, "finalize", 99)
 
@@ -181,8 +201,9 @@ class IndexRun:
             "chunks": totals.chunks,
             "symbols": totals.symbols,
             "parse_errors": len(totals.parse_error_paths),
+            "graph": graph.stats,
         }
-        snapshot.warnings = _warnings(totals)
+        snapshot.warnings = _warnings(totals) + graph.warnings
         partial = any(w["code"] not in NON_PARTIAL_WARNINGS for w in snapshot.warnings)
         if embedder is not None and embedded is not None:
             snapshot.stats |= {
@@ -235,7 +256,11 @@ class IndexRun:
                     totals.parse_error_paths.append(entry.path)
                 else:
                     symbols = result.symbols
-                    symbol_rows.extend(_symbol_rows(symbols, file_id, snapshot_id))
+                    ids = {id(s): uuid.uuid4() for s in symbols}
+                    symbol_rows.extend(_symbol_rows(symbols, ids, file_id, snapshot_id))
+                    totals.graph_inputs.append(
+                        _graph_input(file_id, entry.path, entry.language, result, ids)
+                    )
             for ordinal, chunk in enumerate(chunk_file(entry.text, symbols)):
                 chunk_rows.append(
                     {
@@ -262,6 +287,18 @@ class IndexRun:
             if rows:
                 db.execute(insert(model), rows)
         db.commit()
+
+    def _link(self, db: Session, job: Job, snapshot_id: uuid.UUID, totals: _Totals) -> GraphBuild:
+        """Resolve imports, calls and base classes across the whole snapshot (graph/build.py)."""
+        self._stage(db, job, "graph", 5 + self._store_span)
+        graph = build_graph(snapshot_id, totals.graph_inputs)
+        totals.graph_inputs = []  # free the parse results before embedding
+        self._check_deadline()
+        for start in range(0, len(graph.edges), EDGE_BATCH):
+            db.execute(insert(GraphEdge), graph.edges[start : start + EDGE_BATCH])
+            db.commit()
+            self._checkpoint(db, job)
+        return graph
 
     def _after_batch(self, db: Session, job: Job, totals: _Totals, total_entries: int) -> None:
         self._check_deadline()
@@ -354,10 +391,34 @@ class IndexRun:
         db.commit()
 
 
+def _graph_input(
+    file_id: uuid.UUID, path: str, language: str, result: ParseResult, ids: dict[int, uuid.UUID]
+) -> FileGraphInput:
+    return FileGraphInput(
+        file_id=file_id,
+        path=path,
+        language=language,
+        symbols=[
+            SymbolNode(ids[id(s)], file_id, s.name, s.kind, ids[id(s.parent)] if s.parent else None)
+            for s in result.symbols
+        ],
+        imports=result.imports,
+        references=[
+            Reference(
+                r.relation, r.name, r.receiver, r.line, ids[id(r.source)] if r.source else None
+            )
+            for r in result.references
+        ],
+        dynamic_imports=result.dynamic_imports,
+    )
+
+
 def _symbol_rows(
-    symbols: list[ParsedSymbol], file_id: uuid.UUID, snapshot_id: uuid.UUID
+    symbols: list[ParsedSymbol],
+    ids: dict[int, uuid.UUID],
+    file_id: uuid.UUID,
+    snapshot_id: uuid.UUID,
 ) -> list[dict[str, Any]]:
-    ids = {id(s): uuid.uuid4() for s in symbols}
     return [
         {
             "id": ids[id(s)],

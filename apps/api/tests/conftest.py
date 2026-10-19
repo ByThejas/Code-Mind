@@ -24,7 +24,7 @@ TEST_DATABASE_URL = os.environ.get(
 )
 TEST_SETTINGS = Settings(max_file_bytes=5000, max_repository_files=100)
 TABLES = (
-    "investigations, jobs, embeddings, chunks, symbols, file_contents, files, "
+    "investigations, jobs, graph_edges, embeddings, chunks, symbols, file_contents, files, "
     "repository_snapshots, repositories"
 )
 
@@ -80,7 +80,17 @@ def enqueued() -> list[str]:
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session], enqueued: list[str]) -> Iterator[TestClient]:
+def repo_files() -> dict[str, bytes] | None:
+    """Files of the fake owner/repo tarball; None is tests.fixtures.SAMPLE_FILES. Override per module."""
+    return None
+
+
+@pytest.fixture
+def client(
+    session_factory: sessionmaker[Session],
+    enqueued: list[str],
+    repo_files: dict[str, bytes] | None,
+) -> Iterator[TestClient]:
     def db() -> Iterator[Session]:
         with session_factory() as session:
             yield session
@@ -96,7 +106,7 @@ def client(session_factory: sessionmaker[Session], enqueued: list[str]) -> Itera
         mock.get(f"{API}/repos/owner/repo").respond(json=REPO_JSON)
         mock.get(f"{API}/repos/owner/repo/commits/main").respond(json={"sha": SHA})
         mock.get(f"{API}/repos/owner/repo/commits/v2").respond(json={"sha": SHA2})
-        mock.get(f"{API}/repos/owner/repo/tarball/{SHA}").respond(content=make_tarball())
+        mock.get(f"{API}/repos/owner/repo/tarball/{SHA}").respond(content=make_tarball(repo_files))
         mock.get(f"{API}/repos/owner/private").respond(json=REPO_JSON | {"private": True})
         mock.route(host="testserver").pass_through()
         yield TestClient(app)
