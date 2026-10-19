@@ -57,8 +57,8 @@
 .repo-select select:focus,
 .ask-form textarea:focus,
 .search-form input:focus {
-  border-color: rgba(200, 212, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(160, 180, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
 }
 
 .import-form {
@@ -176,9 +176,9 @@
 .status-badge.queued,
 .status-badge.fetching,
 .status-badge.indexing {
-  color: #aab5ff;
+  color: #d4d7df;
   background: var(--accent-soft);
-  border-color: rgba(180, 195, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .status-badge.failed {
@@ -209,7 +209,7 @@
 .progress-fill {
   height: 100%;
   background: var(--iridescent);
-  box-shadow: 0 0 12px rgba(180, 200, 255, 0.5);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
   border-radius: inherit;
   transition: width 400ms ease;
 }
@@ -264,8 +264,8 @@
 }
 
 .ghost-button.accent {
-  color: #c3cbff;
-  border-color: rgba(180, 195, 255, 0.3);
+  color: #e4e6ec;
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .link-button {
@@ -308,7 +308,7 @@
 
 .engineer-side {
   position: sticky;
-  top: 92px;
+  top: 24px;
   min-width: 0;
 }
 
@@ -450,19 +450,19 @@
   max-width: 100%;
   padding: 4px 8px;
   overflow: hidden;
-  color: #c3cbff;
+  color: #e4e6ec;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--accent-soft);
-  border: 1px solid rgba(180, 195, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   cursor: pointer;
 }
 
 .citation:hover {
-  background: rgba(180, 195, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .citation.subtle {
@@ -513,7 +513,7 @@
 }
 
 .evidence-card:hover {
-  border-color: rgba(180, 195, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .evidence-head {
@@ -521,7 +521,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 12px;
-  color: #c3cbff;
+  color: #e4e6ec;
   font-size: 11px;
 }
 
@@ -567,7 +567,7 @@
 }
 
 .code-line.cited {
-  background: rgba(160, 180, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
