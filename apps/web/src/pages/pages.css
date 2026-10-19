@@ -46,7 +46,7 @@
   color: var(--text);
   font: inherit;
   font-size: 12px;
-  background: #0c0f16;
+  background: var(--glass-well);
   border: 1px solid var(--border);
   border-radius: 9px;
   outline: none;
@@ -57,7 +57,8 @@
 .repo-select select:focus,
 .ask-form textarea:focus,
 .search-form input:focus {
-  border-color: #4d5a9c;
+  border-color: rgba(200, 212, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(160, 180, 255, 0.12);
 }
 
 .import-form {
@@ -84,8 +85,8 @@
 .error-note {
   margin: 0 0 15px;
   color: #ffb0b0;
-  background: #2a1619;
-  border-color: #4a2429;
+  background: rgba(255, 90, 90, 0.1);
+  border-color: rgba(255, 120, 120, 0.3);
 }
 
 .muted-line {
@@ -155,21 +156,21 @@
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  background: #1b202c;
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--border);
   border-radius: 999px;
 }
 
 .status-badge.ready {
   color: var(--green);
-  background: #12261f;
-  border-color: #1f4a39;
+  background: rgba(90, 220, 160, 0.1);
+  border-color: rgba(110, 230, 170, 0.3);
 }
 
 .status-badge.partial {
   color: #e5bc68;
-  background: #2a2314;
-  border-color: #4d3f1f;
+  background: rgba(230, 190, 100, 0.1);
+  border-color: rgba(230, 190, 100, 0.3);
 }
 
 .status-badge.queued,
@@ -177,13 +178,13 @@
 .status-badge.indexing {
   color: #aab5ff;
   background: var(--accent-soft);
-  border-color: #354177;
+  border-color: rgba(180, 195, 255, 0.3);
 }
 
 .status-badge.failed {
   color: #ff8585;
-  background: #2a1619;
-  border-color: #4a2429;
+  background: rgba(255, 90, 90, 0.1);
+  border-color: rgba(255, 120, 120, 0.3);
 }
 
 .job-progress {
@@ -201,13 +202,14 @@
 .progress-track {
   height: 5px;
   overflow: hidden;
-  background: #1b202c;
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 999px;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #596be2, #8b9cff);
+  background: var(--iridescent);
+  box-shadow: 0 0 12px rgba(180, 200, 255, 0.5);
   border-radius: inherit;
   transition: width 400ms ease;
 }
@@ -258,12 +260,12 @@
 
 .ghost-button:hover:not(:disabled) {
   background: var(--surface-hover);
-  border-color: #353d50;
+  border-color: var(--glass-edge-bright);
 }
 
 .ghost-button.accent {
   color: #c3cbff;
-  border-color: #354177;
+  border-color: rgba(180, 195, 255, 0.3);
 }
 
 .link-button {
@@ -306,7 +308,7 @@
 
 .engineer-side {
   position: sticky;
-  top: 20px;
+  top: 92px;
   min-width: 0;
 }
 
@@ -391,8 +393,8 @@
 
 .claim {
   padding: 12px 14px;
-  background: #0d1118;
-  border: 1px solid #1f2532;
+  background: var(--glass-well);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-left: 3px solid var(--green);
   border-radius: 8px;
 }
@@ -419,18 +421,18 @@
   font-weight: 600;
   letter-spacing: 0.6px;
   text-transform: uppercase;
-  background: #12261f;
+  background: rgba(90, 220, 160, 0.1);
   border-radius: 999px;
 }
 
 .claim-status.hypothesis {
   color: #e5bc68;
-  background: #2a2314;
+  background: rgba(230, 190, 100, 0.1);
 }
 
 .claim-status.unverified {
   color: #ff8585;
-  background: #2a1619;
+  background: rgba(255, 90, 90, 0.1);
 }
 
 .citations,
@@ -454,18 +456,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--accent-soft);
-  border: 1px solid #354177;
+  border: 1px solid rgba(180, 195, 255, 0.3);
   border-radius: 6px;
   cursor: pointer;
 }
 
 .citation:hover {
-  background: #2c3660;
+  background: rgba(180, 195, 255, 0.24);
 }
 
 .citation.subtle {
   color: #a2abc0;
-  background: #161b26;
+  background: rgba(255, 255, 255, 0.05);
   border-color: var(--border);
 }
 
@@ -511,7 +513,7 @@
 }
 
 .evidence-card:hover {
-  border-color: #354177;
+  border-color: rgba(180, 195, 255, 0.3);
 }
 
 .evidence-head {
@@ -543,8 +545,8 @@
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;
   line-height: 1.65;
-  background: #0b0e14;
-  border: 1px solid #1f2532;
+  background: rgba(2, 4, 8, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
 }
 
@@ -565,7 +567,7 @@
 }
 
 .code-line.cited {
-  background: #1c2440;
+  background: rgba(160, 180, 255, 0.14);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 

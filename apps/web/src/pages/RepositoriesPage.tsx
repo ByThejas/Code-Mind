@@ -287,7 +287,7 @@ export default function RepositoriesPage({ onAsk }: RepositoriesPageProps) {
           const isBusy = busy[repository.id];
 
           return (
-            <article className="panel repo-card" key={repository.id}>
+            <article className="panel repo-card tilt" key={repository.id}>
               <div className="repo-main">
                 <div className="panel-icon">
                   <GitBranch size={19} />

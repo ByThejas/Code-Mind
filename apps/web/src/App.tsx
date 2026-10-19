@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 
 import { api } from "./api";
+import ChromeBackdrop from "./components/ChromeBackdrop";
+import ChromeCore from "./components/ChromeCore";
 import IntroExperience from "./components/IntroExperience";
+import { useGlassTilt } from "./components/useGlassTilt";
 import AIEngineerPage from "./pages/AIEngineerPage";
 import RepositoriesPage from "./pages/RepositoriesPage";
 import "./index.css";
@@ -33,6 +36,8 @@ function App() {
   const [selectedRepositoryId, setSelectedRepositoryId] = useState<
     string | null
   >(null);
+
+  useGlassTilt();
 
   async function checkBackend() {
     setBackendStatus("checking");
@@ -60,6 +65,8 @@ function App() {
 
   return (
     <div className="app-shell">
+      <ChromeBackdrop />
+
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
@@ -212,7 +219,7 @@ function App() {
                   </p>
 
                   <h2>
-                    Understand your code.
+                    <span className="chrome-text">Understand your code.</span>
                     <br />
                     <span>Build with intelligence.</span>
                   </h2>
@@ -223,11 +230,7 @@ function App() {
                   </p>
                 </div>
 
-                <div className="welcome-mark">
-                  <Code2 size={56} strokeWidth={1.1} />
-                  <div className="orbit orbit-one" />
-                  <div className="orbit orbit-two" />
-                </div>
+                <ChromeCore />
               </div>
 
               <div className="section-heading">
@@ -240,7 +243,7 @@ function App() {
               </div>
 
               <div className="stats-grid">
-                <article className="stat-card">
+                <article className="stat-card tilt">
                   <div className="stat-top">
                     <span>Repositories</span>
                     <GitBranch size={18} />
@@ -250,7 +253,7 @@ function App() {
                   <p>No repositories connected yet</p>
                 </article>
 
-                <article className="stat-card">
+                <article className="stat-card tilt">
                   <div className="stat-top">
                     <span>Analysis jobs</span>
                     <Activity size={18} />
@@ -260,7 +263,7 @@ function App() {
                   <p>Waiting for your first project</p>
                 </article>
 
-                <article className="stat-card">
+                <article className="stat-card tilt">
                   <div className="stat-top">
                     <span>AI engineer</span>
                     <Bot size={18} />
@@ -272,7 +275,7 @@ function App() {
               </div>
 
               <div className="content-grid">
-                <article className="panel repository-panel">
+                <article className="panel repository-panel tilt">
                   <div className="panel-heading">
                     <div>
                       <h3>Get started</h3>
@@ -325,7 +328,7 @@ function App() {
                   </div>
                 </article>
 
-                <article className="panel system-panel">
+                <article className="panel system-panel tilt">
                   <div className="panel-heading">
                     <div>
                       <h3>System status</h3>
@@ -433,4 +436,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;
