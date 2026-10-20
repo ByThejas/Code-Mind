@@ -10,7 +10,7 @@ This repository is early: a FastAPI backend that can import a public GitHub repo
 apps/
   api/   FastAPI backend (Python 3.12+)
   web/   React + Vite + Three.js frontend
-docs/                Design notes (ingestion-design.md, retrieval-design.md, graph-design.md)
+docs/                Design notes (ingestion, retrieval, graph and impact design)
 docker-compose.yml   Postgres 16 with pgvector, Redis 7
 ```
 
@@ -107,6 +107,18 @@ curl 'localhost:8000/api/v1/repositories/{id}/graph/modules?depth=2'          # 
 ```
 
 `GET /graph/neighborhood?symbol_id=...` (or `?path=...` for a file's imports) returns the nearby graph as nodes and edges. Repositories indexed before the graph existed report `graph.available: false`; re-index them with `{"force": true}` (in the web app: Re-index, then Re-index anyway). The design, resolution rules and benchmark are in [docs/graph-design.md](docs/graph-design.md).
+
+### Check what a change could break
+
+Give the symbols, files or lines you plan to change, or paste a unified diff (`git diff`), and impact analysis walks the code graph backwards to find what calls, extends or imports them, ranks each dependant by distance and edge confidence, and lists the tests most likely to cover the change. Every result carries the edge and source line it rests on, plus `limitations` saying what static analysis could not see; treat it as advice, not proof.
+
+```bash
+curl -X POST localhost:8000/api/v1/repositories/{id}/impact-analysis \
+  -H 'content-type: application/json' \
+  -d '{"targets": [{"path": "shop/billing.py", "start_line": 1, "end_line": 3}], "depth": 3}'
+```
+
+The request can also take `"diff": "<output of git diff>"` and a `symbol_id` in place of a path. The design is in [docs/impact-design.md](docs/impact-design.md).
 
 ### 3. Run the web app
 
