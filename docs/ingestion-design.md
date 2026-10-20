@@ -160,13 +160,15 @@ can replace it without touching routes).
 | `GET /repositories/{id}` | Metadata, latest snapshot (SHA, status, stats, warnings). | `200` / `404` |
 | `POST /repositories/{id}/index` | Body `{ref?}`. Re-index default branch head or a ref; idempotent per SHA. | `202 {snapshot, job}` |
 | `GET /jobs/{id}` | Status, stage, progress, safe error code/message. | `200` |
+| `DELETE /repositories/{id}` | Remove the repository and all its indexed data. | `204` / `409` while indexing |
 | `POST /jobs/{id}/cancel` | Request cancellation. | `202` |
 | `GET /repositories/{id}/files` | `?snapshot_id&path_prefix&include_excluded&cursor`. Paginated file list. | `200 {items, next_cursor}` |
 | `GET /repositories/{id}/files/content` | `?snapshot_id&path&start_line&end_line`. Capped at 2,000 lines. | `200 {path, commit_sha, start_line, end_line, text}` |
 
 `snapshot_id` defaults to the latest `ready`/`partial` snapshot. Responses always carry `commit_sha` so the UI
-can show which revision it is looking at (FR-01). `DELETE /repositories/{id}` is listed in the blueprint and is cheap
-given the cascades, but is left for the next slice.
+can show which revision it is looking at (FR-01). `DELETE /repositories/{id}` (added after the first slice) returns
+`204` and removes everything under the repository through the cascades; queued jobs are also dropped from Redis,
+and a running job makes it answer `409 repository_busy` so a worker never writes into rows being deleted.
 
 Error codes for the first slice: `invalid_repository_url`, `repository_not_found`, `repository_private`,
 `repository_too_large`, `ref_not_found`, `github_rate_limited`, `fetch_failed`, `job_timeout`, `cancelled`.

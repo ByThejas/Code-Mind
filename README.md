@@ -73,6 +73,8 @@ curl -X POST localhost:8000/api/v1/repositories \
 
 The response holds the pinned `commit_sha` and a job. Poll `GET /api/v1/jobs/{id}` until it reports `succeeded`, then browse with `GET /api/v1/repositories/{id}/files` and `GET /api/v1/repositories/{id}/files/content?path=...`. The design is in [docs/ingestion-design.md](docs/ingestion-design.md).
 
+To remove a repository and everything indexed from it (snapshots, files, chunks, embeddings, symbols, graph, jobs and past questions), send `DELETE /api/v1/repositories/{id}`. It returns 204, drops queued index jobs, and answers 409 `repository_busy` while an index job is running; cancel that job with `POST /api/v1/jobs/{id}/cancel` and try again once it stops.
+
 To try fetching and filtering without the database or worker, run `python scripts/spike_fetch.py owner/repo`.
 
 ### Ask questions about it
