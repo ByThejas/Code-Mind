@@ -140,3 +140,30 @@ FLOW_CASES: list[tuple[str, set[str]]] = [
         {"shop/api/routes.py", "shop/billing.py"},
     ),
 ]
+
+# The shop plus tests, for impact analysis: one test calls code directly, one is only named after
+# the file it covers, one only mentions a function, and one TypeScript test calls at module level.
+IMPACT_FILES: dict[str, bytes] = GRAPH_FILES | {
+    "tests/__init__.py": b"",
+    "tests/test_billing.py": b"""from shop.billing import charge
+
+
+class Card:
+    card = "4242424242424242"
+
+
+def test_charge_keeps_the_last_four_digits():
+    assert charge(Card(), 5)["card"] == "4242"
+""",
+    "tests/test_orders.py": b"""def test_totals_are_summed():
+    assert sum([1, 2]) == 3
+""",
+    "tests/test_flows.py": b"""# End to end: an HTTP request through place_order to the gateway.
+def test_flow_is_documented():
+    assert True
+""",
+    "web/src/api.test.ts": b"""import { submitOrder } from './api';
+
+submitOrder([]);
+""",
+}
