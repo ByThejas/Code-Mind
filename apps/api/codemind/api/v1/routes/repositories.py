@@ -1,15 +1,19 @@
+import logging
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from redis.exceptions import RedisError
 from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from codemind.api.dependencies import get_current_workspace, get_db, get_enqueue, get_github
 from codemind.core.config import settings
-from codemind.core.errors import NotFoundError
-from codemind.db.models import Repository, RepositorySnapshot
+from codemind.core.errors import CodemindError, NotFoundError
+from codemind.db.models import Job, JobStatus, Repository, RepositorySnapshot
+from codemind.indexing.queue import cancel_queued_job
+from codemind.indexing.recovery import reap_stale_jobs
 from codemind.repositories.github import GitHubClient
 from codemind.repositories.service import (
     Enqueue,
@@ -26,6 +30,8 @@ from codemind.schemas.ingestion import (
     RepositoryOut,
     SnapshotOut,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
@@ -107,6 +113,45 @@ def index_repository(
         db, repo, body.ref, github=github, enqueue=enqueue, settings=settings, force=body.force
     )
     return _index_response(result, response)
+
+
+@router.delete(
+    "/{repository_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={409: {"description": "An index job is running; cancel it first."}},
+)
+def delete_repository(repository_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> Response:
+    """Remove a repository and everything indexed from it: snapshots, files, chunks, embeddings,
+    symbols, graph edges, jobs and investigations. Queued index jobs are dropped from the queue."""
+    repo = get_owned_repository(db, workspace_id, repository_id)
+    reap_stale_jobs(db, settings)  # a job whose worker died must not block deletion
+    snapshot_ids = select(RepositorySnapshot.id).where(RepositorySnapshot.repository_id == repo.id)
+    active = list(
+        db.scalars(
+            select(Job)
+            .where(
+                Job.snapshot_id.in_(snapshot_ids),
+                Job.status.in_((JobStatus.QUEUED, JobStatus.RUNNING)),
+            )
+            .order_by(Job.created_at)
+        )
+    )
+    running = [j for j in active if j.status == JobStatus.RUNNING]
+    if running:
+        raise CodemindError(
+            "repository_busy",
+            f"Index job {running[0].id} is running. Cancel it, wait for it to stop, then delete.",
+            status_code=409,
+        )
+    queued = [str(j.id) for j in active]
+    db.delete(repo)
+    db.commit()
+    for job_id in queued:
+        try:
+            cancel_queued_job(job_id)
+        except RedisError:  # harmless: the worker skips jobs whose row is gone
+            log.warning("could not remove job %s from the queue", job_id, exc_info=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def get_owned_repository(
