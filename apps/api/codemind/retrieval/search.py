@@ -208,10 +208,13 @@ def _keyword(db: Session, snapshot_id: uuid.UUID, query: ParsedQuery) -> list[uu
         return []
     tsquery = func.to_tsquery("simple", query.tsquery)
     rank = func.ts_rank_cd(Chunk.search_tsv, tsquery)
+    # Ties break on path and position, not on random ids, so equal content ranks the same way
+    # in every index of it.
     stmt = (
         select(Chunk.id)
+        .join(File, File.id == Chunk.file_id)
         .where(Chunk.snapshot_id == snapshot_id, Chunk.search_tsv.op("@@")(tsquery))
-        .order_by(rank.desc(), Chunk.id)
+        .order_by(rank.desc(), File.path, Chunk.start_line)
         .limit(KEYWORD_LIMIT)
     )
     return list(db.scalars(stmt))
@@ -232,14 +235,20 @@ def _symbols(db: Session, snapshot_id: uuid.UUID, identifiers: list[str]) -> lis
     stmt = (
         select(Chunk.id)
         .join(Symbol, Symbol.file_id == Chunk.file_id)
+        .join(File, File.id == Chunk.file_id)
         .where(
             Symbol.snapshot_id == snapshot_id,
             or_(*conditions),
             Chunk.start_line <= Symbol.start_line,
             Chunk.end_line >= Symbol.start_line,
         )
-        .group_by(Chunk.id)
-        .order_by(func.max(exact.cast(Integer)).desc(), func.min(Symbol.start_line), Chunk.id)
+        .group_by(Chunk.id, File.path, Chunk.start_line)
+        .order_by(
+            func.max(exact.cast(Integer)).desc(),
+            func.min(Symbol.start_line),
+            File.path,
+            Chunk.start_line,
+        )
         .limit(SYMBOL_LIMIT)
     )
     return list(db.scalars(stmt))
@@ -279,14 +288,21 @@ def _vector(
     # The HNSW index spans all snapshots and filtering happens after the scan, so widen the
     # candidate list (docs/retrieval-design.md §4).
     db.execute(text(f"SET LOCAL hnsw.ef_search = {HNSW_EF_SEARCH}"))
+    distance = Embedding.embedding.cosine_distance(vector)
     stmt = (
-        select(Chunk.id)
+        select(Chunk.id, distance, Chunk.file_id, Chunk.start_line)
         .join(Embedding, Embedding.chunk_id == Chunk.id)
         .where(Chunk.snapshot_id == snapshot_id, Embedding.model_name == model_name)
-        .order_by(Embedding.embedding.cosine_distance(vector))
+        .order_by(distance)  # nothing else here, so the HNSW index is used
         .limit(VECTOR_LIMIT)
     )
-    return list(db.scalars(stmt))
+    rows = list(db.execute(stmt).all())
+    paths = dict(
+        db.execute(select(File.id, File.path).where(File.id.in_({r[2] for r in rows}))).all()
+    )
+    # Equal distances are ordered by position, not by the scan's arbitrary order.
+    rows.sort(key=lambda r: (round(r[1], 9), paths.get(r[2], ""), r[3]))
+    return [r[0] for r in rows]
 
 
 def is_flow_question(question: str) -> bool:
@@ -355,8 +371,9 @@ def _graph(
     if not inherited:
         return {}
     rows = db.execute(
-        select(Symbol.id, Chunk.id)
+        select(Symbol.id, Chunk.id, File.path, Chunk.start_line)
         .join(Chunk, Chunk.file_id == Symbol.file_id)
+        .join(File, File.id == Chunk.file_id)
         .where(
             Symbol.id.in_(list(inherited)),
             Chunk.start_line <= Symbol.start_line,
@@ -365,14 +382,17 @@ def _graph(
         .order_by(Chunk.end_line - Chunk.start_line, Chunk.ordinal)
     ).all()
     chunk_of: dict[uuid.UUID, uuid.UUID] = {}
-    for symbol_id, chunk_id in rows:
+    position: dict[uuid.UUID, tuple[str, int]] = {}
+    for symbol_id, chunk_id, path, start_line in rows:
         chunk_of.setdefault(symbol_id, chunk_id)  # the tightest chunk around the symbol
+        position[chunk_id] = (path, start_line)
     result: dict[uuid.UUID, float] = {}
     for symbol_id, score in inherited.items():
         holder = chunk_of.get(symbol_id)
         if holder is not None:
             result[holder] = max(result.get(holder, 0.0), score)
-    best = sorted(result, key=lambda cid: result[cid], reverse=True)[:GRAPH_LIMIT]
+    # Equal scores are ordered by position so the cut and the ranking never depend on random ids.
+    best = sorted(result, key=lambda cid: (-result[cid], position[cid]))[:GRAPH_LIMIT]
     return {cid: result[cid] for cid in best}
 
 

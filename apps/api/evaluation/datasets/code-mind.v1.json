@@ -1,0 +1,136 @@
+{
+  "name": "code-mind",
+  "version": 1,
+  "repository": "ByThejas/Code-Mind",
+  "commit_sha": "dfdaa75a70de5ce41cba893c122d5d32d2c5322b",
+  "description": "Questions about Code Mind's own code, written against the commit above. Index that commit (POST /api/v1/repositories with ref set to the SHA) and run scripts/evaluate_retrieval.py.",
+  "cases": [
+    {
+      "id": "cm-lookup-parse-url",
+      "category": "symbol_lookup",
+      "question": "Where is parse_repository_url defined?",
+      "expected_files": ["apps/api/codemind/repositories/github.py"],
+      "expected_symbols": ["parse_repository_url"]
+    },
+    {
+      "id": "cm-lookup-reap",
+      "category": "symbol_lookup",
+      "question": "Find reap_stale_jobs",
+      "expected_files": ["apps/api/codemind/indexing/recovery.py"],
+      "expected_symbols": ["reap_stale_jobs"]
+    },
+    {
+      "id": "cm-lookup-graph-edge-model",
+      "category": "symbol_lookup",
+      "question": "Which model stores graph edges?",
+      "expected_files": ["apps/api/codemind/db/models.py"],
+      "expected_symbols": ["GraphEdge"]
+    },
+    {
+      "id": "cm-lookup-build-graph",
+      "category": "symbol_lookup",
+      "question": "Where is build_graph?",
+      "expected_files": ["apps/api/codemind/graph/build.py"],
+      "expected_symbols": ["build_graph"]
+    },
+    {
+      "id": "cm-explain-secret-filter",
+      "category": "explanation",
+      "question": "How are files that look like secrets kept out of the index?",
+      "expected_files": ["apps/api/codemind/indexing/filters.py"],
+      "expected_symbols": ["path_exclusion", "content_exclusion"]
+    },
+    {
+      "id": "cm-explain-rrf",
+      "category": "explanation",
+      "question": "How are keyword, symbol and vector search results fused into one ranking?",
+      "expected_files": ["apps/api/codemind/retrieval/search.py"],
+      "expected_symbols": ["retrieve"]
+    },
+    {
+      "id": "cm-explain-unverified",
+      "category": "explanation",
+      "question": "When is an answer claim marked unverified?",
+      "expected_files": ["apps/api/codemind/retrieval/answer.py"],
+      "expected_symbols": ["validate_answer"]
+    },
+    {
+      "id": "cm-explain-chunking",
+      "category": "explanation",
+      "question": "How is a file split into chunks for search?",
+      "expected_files": ["apps/api/codemind/indexing/chunking.py"],
+      "expected_symbols": ["chunk_file"]
+    },
+    {
+      "id": "cm-explain-tarball",
+      "category": "explanation",
+      "question": "How is the repository tarball downloaded from GitHub?",
+      "expected_files": ["apps/api/codemind/repositories/github.py"],
+      "expected_symbols": ["download_tarball"]
+    },
+    {
+      "id": "cm-flow-import",
+      "category": "flow",
+      "question": "What happens when a repository is imported through POST /repositories?",
+      "expected_files": [
+        "apps/api/codemind/api/v1/routes/repositories.py",
+        "apps/api/codemind/repositories/service.py",
+        "apps/api/codemind/repositories/github.py"
+      ],
+      "expected_symbols": ["create_repository", "import_repository"]
+    },
+    {
+      "id": "cm-flow-index-job",
+      "category": "flow",
+      "question": "What does the worker do when it runs an index_snapshot job?",
+      "expected_files": [
+        "apps/api/codemind/indexing/tasks.py",
+        "apps/api/codemind/indexing/pipeline.py"
+      ],
+      "expected_symbols": ["index_snapshot", "run"]
+    },
+    {
+      "id": "cm-flow-investigation",
+      "category": "flow",
+      "question": "How is an investigation answered after the question is posted?",
+      "expected_files": [
+        "apps/api/codemind/api/v1/routes/investigations.py",
+        "apps/api/codemind/retrieval/answer.py",
+        "apps/api/codemind/retrieval/search.py"
+      ],
+      "expected_symbols": ["run_investigation"]
+    },
+    {
+      "id": "cm-flow-cancel",
+      "category": "flow",
+      "question": "What happens when a queued job is cancelled?",
+      "expected_files": [
+        "apps/api/codemind/api/v1/routes/jobs.py",
+        "apps/api/codemind/indexing/queue.py"
+      ],
+      "expected_symbols": ["cancel_job", "cancel_queued_job"]
+    },
+    {
+      "id": "cm-config-windows-worker",
+      "category": "config",
+      "question": "Which worker class is used on Windows?",
+      "expected_files": ["apps/api/worker.py"]
+    },
+    {
+      "id": "cm-config-embedding-provider",
+      "category": "config",
+      "question": "How is the embedding provider chosen from settings?",
+      "expected_files": [
+        "apps/api/codemind/providers/__init__.py",
+        "apps/api/codemind/core/config.py"
+      ],
+      "expected_symbols": ["get_embedding_provider"]
+    },
+    {
+      "id": "cm-config-dev-proxy",
+      "category": "config",
+      "question": "Where does the web dev server proxy /api requests?",
+      "expected_files": ["apps/web/vite.config.ts"]
+    }
+  ]
+}

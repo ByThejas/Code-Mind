@@ -1,0 +1,75 @@
+{
+  "name": "shop-fixture",
+  "version": 1,
+  "repository": "fixture:shop",
+  "commit_sha": null,
+  "description": "The small shop in tests/graph_fixtures.py (GRAPH_FILES). Runs in CI with the deterministic test embedder.",
+  "cases": [
+    {
+      "id": "shop-lookup-charge",
+      "category": "symbol_lookup",
+      "question": "Where is charge defined?",
+      "expected_files": ["shop/billing.py"],
+      "expected_symbols": ["charge"]
+    },
+    {
+      "id": "shop-lookup-format-price",
+      "category": "symbol_lookup",
+      "question": "Where is formatPrice?",
+      "expected_files": ["web/src/format.ts"],
+      "expected_symbols": ["formatPrice"]
+    },
+    {
+      "id": "shop-lookup-order-repository",
+      "category": "symbol_lookup",
+      "question": "Find the OrderRepository class",
+      "expected_files": ["shop/db/store.py"],
+      "expected_symbols": ["OrderRepository"]
+    },
+    {
+      "id": "shop-explain-gateway",
+      "category": "explanation",
+      "question": "What does gateway_request return?",
+      "expected_files": ["shop/billing.py"],
+      "expected_symbols": ["gateway_request"]
+    },
+    {
+      "id": "shop-explain-persist",
+      "category": "explanation",
+      "question": "How are order rows persisted?",
+      "expected_files": ["shop/db/store.py"],
+      "expected_symbols": ["persist", "store_order"]
+    },
+    {
+      "id": "shop-explain-http-post",
+      "category": "explanation",
+      "question": "How does the web client post JSON to the server?",
+      "expected_files": ["web/src/http.ts"],
+      "expected_symbols": ["post"]
+    },
+    {
+      "id": "shop-flow-create-order",
+      "category": "flow",
+      "question": "What happens when create_order_endpoint is called?",
+      "expected_files": ["shop/api/routes.py", "shop/services/orders.py", "shop/billing.py"]
+    },
+    {
+      "id": "shop-flow-checkout",
+      "category": "flow",
+      "question": "How does Checkout send the order to the server?",
+      "expected_files": ["web/src/Checkout.tsx", "web/src/api.ts", "web/src/http.ts"]
+    },
+    {
+      "id": "shop-flow-order-service",
+      "category": "flow",
+      "question": "What does OrderService.run do?",
+      "expected_files": ["shop/services/orders.py", "shop/services/base.py"]
+    },
+    {
+      "id": "shop-flow-cancel",
+      "category": "flow",
+      "question": "What does cancel_order_endpoint do with the card?",
+      "expected_files": ["shop/api/routes.py", "shop/billing.py"]
+    }
+  ]
+}
