@@ -1,20 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Activity,
+  ArrowRight,
   Bot,
-  Code2,
   GitBranch,
-  Github,
   LayoutDashboard,
-  Plus,
   Settings,
   ShieldCheck,
   Terminal,
+  type LucideIcon,
 } from "lucide-react";
 
-import { api } from "./api";
-import IntroExperience from "./components/IntroExperience";
+import { api, isServable, type Repository } from "./api";
+import ChromeSphere from "./components/ChromeSphere";
 import AIEngineerPage from "./pages/AIEngineerPage";
 import RepositoriesPage from "./pages/RepositoriesPage";
 import "./index.css";
@@ -22,11 +21,31 @@ import "./pages/pages.css";
 
 type BackendStatus = "checking" | "connected" | "disconnected";
 
-function App() {
-  const [showWorkspace, setShowWorkspace] = useState(false);
+interface NavEntry {
+  page: string;
+  icon: LucideIcon;
+}
 
+const MAIN_NAV: NavEntry[] = [
+  { page: "Overview", icon: LayoutDashboard },
+  { page: "Repositories", icon: GitBranch },
+  { page: "AI Engineer", icon: Bot },
+];
+
+const LATER_NAV: NavEntry[] = [
+  { page: "Code intelligence", icon: Activity },
+  { page: "Analysis jobs", icon: Terminal },
+  { page: "Security", icon: ShieldCheck },
+  { page: "Settings", icon: Settings },
+];
+
+function App() {
   const [backendStatus, setBackendStatus] =
     useState<BackendStatus>("checking");
+
+  const [repositories, setRepositories] = useState<Repository[] | null>(
+    null,
+  );
 
   const [activePage, setActivePage] = useState("Overview");
 
@@ -34,359 +53,150 @@ function App() {
     string | null
   >(null);
 
-  async function checkBackend() {
-    setBackendStatus("checking");
+  useEffect(() => {
+    let cancelled = false;
 
-    try {
-      await api.health();
+    api
+      .health()
+      .then(() => !cancelled && setBackendStatus("connected"))
+      .catch(() => !cancelled && setBackendStatus("disconnected"));
 
-      setBackendStatus("connected");
-    } catch {
-      setBackendStatus("disconnected");
-    }
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  function navigateTo(page: string) {
-    setActivePage(page);
-  }
+  useEffect(() => {
+    if (activePage !== "Overview") return;
 
-  if (!showWorkspace) {
-    return (
-      <IntroExperience
-        onEnter={() => setShowWorkspace(true)}
-      />
-    );
+    let cancelled = false;
+
+    api
+      .listRepositories()
+      .then((result) => !cancelled && setRepositories(result.items))
+      .catch(() => !cancelled && setRepositories(null));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage]);
+
+  const indexed = repositories?.filter(isServable) ?? [];
+  const filesIndexed = indexed.reduce(
+    (total, repository) =>
+      total + (repository.latest_snapshot?.stats.files_included ?? 0),
+    0,
+  );
+
+  function renderNav(entries: NavEntry[]) {
+    return entries.map(({ page, icon: Icon }) => (
+      <button
+        key={page}
+        className={`nav-item ${activePage === page ? "active" : ""}`}
+        type="button"
+        onClick={() => setActivePage(page)}
+      >
+        <Icon size={16} strokeWidth={1.6} />
+        <span>{page}</span>
+      </button>
+    ));
   }
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">
-            <Code2 size={21} />
-          </div>
-
-          <div>
-            <h1>CODEMIND</h1>
-            <span>ENGINEERING WORKSPACE</span>
-          </div>
+          <span className="brand-mark" />
+          <h1>CodeMind</h1>
         </div>
 
-        <button
-          className="new-project"
-          type="button"
-          onClick={() => navigateTo("New project")}
-        >
-          <Plus size={17} />
-          <span>New project</span>
-        </button>
+        <nav className="sidebar-section">{renderNav(MAIN_NAV)}</nav>
 
-        <div className="sidebar-section">
-          <p className="section-label">WORKSPACE</p>
-
-          <button
-            className={`nav-item ${
-              activePage === "Overview" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Overview")}
-          >
-            <LayoutDashboard size={17} />
-            <span>Overview</span>
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage === "Repositories" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Repositories")}
-          >
-            <GitBranch size={17} />
-            <span>Repositories</span>
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage === "AI Engineer" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("AI Engineer")}
-          >
-            <Bot size={17} />
-            <span>AI Engineer</span>
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage === "Code intelligence" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Code intelligence")}
-          >
-            <Activity size={17} />
-            <span>Code intelligence</span>
-          </button>
-        </div>
-
-        <div className="sidebar-section">
-          <p className="section-label">DEVELOPMENT</p>
-
-          <button
-            className={`nav-item ${
-              activePage === "Analysis jobs" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Analysis jobs")}
-          >
-            <Terminal size={17} />
-            <span>Analysis jobs</span>
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage === "Security" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Security")}
-          >
-            <ShieldCheck size={17} />
-            <span>Security</span>
-          </button>
-        </div>
-
-        <div className="sidebar-bottom">
-          <button
-            className={`nav-item ${
-              activePage === "Settings" ? "active" : ""
-            }`}
-            type="button"
-            onClick={() => navigateTo("Settings")}
-          >
-            <Settings size={17} />
-            <span>Settings</span>
-          </button>
-
-          <div className="user-card">
-            <div className="avatar">C</div>
-
-            <div>
-              <strong>Developer</strong>
-              <span>Local workspace</span>
-            </div>
-          </div>
-        </div>
+        <nav className="sidebar-section later">
+          <p className="section-label">Coming later</p>
+          {renderNav(LATER_NAV)}
+        </nav>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
-          <div className="breadcrumb">
-            <span>Workspace</span>
-            <span className="breadcrumb-divider">/</span>
-            <strong>{activePage}</strong>
-          </div>
+          <strong>{activePage}</strong>
 
-          <div className="topbar-right">
-            <span className="environment-badge">
-              LOCAL DEVELOPMENT
-            </span>
-
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="GitHub"
-              title="GitHub integration coming later"
-            >
-              <Github size={19} />
-            </button>
-          </div>
+          <span className={`api-status ${backendStatus}`}>
+            <span className="status-dot" />
+            {backendStatus === "checking"
+              ? "Checking API"
+              : backendStatus === "connected"
+                ? "API online"
+                : "API offline"}
+          </span>
         </header>
 
         <section className="dashboard">
           {activePage === "Overview" ? (
             <>
-              <div className="welcome-row">
-                <div>
-                  <p className="eyebrow">
-                    YOUR ENGINEERING COMMAND CENTER
-                  </p>
+              <div className="hero">
+                <div className="hero-copy">
+                  <p className="eyebrow">Local · Free models</p>
 
                   <h2>
-                    Understand your code.
+                    Understand your code,
                     <br />
-                    <span>Build with intelligence.</span>
+                    <em>with evidence.</em>
                   </h2>
 
-                  <p className="welcome-description">
-                    Connect a repository to begin exploring architecture,
-                    understanding dependencies, and analyzing your codebase.
+                  <p className="hero-description">
+                    Index a GitHub repository, then ask questions and get
+                    answers that cite the exact files and lines.
                   </p>
-                </div>
 
-                <div className="welcome-mark">
-                  <Code2 size={56} strokeWidth={1.1} />
-                  <div className="orbit orbit-one" />
-                  <div className="orbit orbit-two" />
-                </div>
-              </div>
-
-              <div className="section-heading">
-                <div>
-                  <h3>Workspace overview</h3>
-                  <p>Your development environment at a glance.</p>
-                </div>
-
-                <span className="local-tag">DEVELOPMENT MODE</span>
-              </div>
-
-              <div className="stats-grid">
-                <article className="stat-card">
-                  <div className="stat-top">
-                    <span>Repositories</span>
-                    <GitBranch size={18} />
-                  </div>
-
-                  <strong>0</strong>
-                  <p>No repositories connected yet</p>
-                </article>
-
-                <article className="stat-card">
-                  <div className="stat-top">
-                    <span>Analysis jobs</span>
-                    <Activity size={18} />
-                  </div>
-
-                  <strong>0</strong>
-                  <p>Waiting for your first project</p>
-                </article>
-
-                <article className="stat-card">
-                  <div className="stat-top">
-                    <span>AI engineer</span>
-                    <Bot size={18} />
-                  </div>
-
-                  <strong className="stat-text">Standby</strong>
-                  <p>Repository intelligence is next</p>
-                </article>
-              </div>
-
-              <div className="content-grid">
-                <article className="panel repository-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>Get started</h3>
-                      <p>
-                        Your first step into repository intelligence.
-                      </p>
-                    </div>
-
-                    <div className="panel-icon">
-                      <GitBranch size={19} />
-                    </div>
-                  </div>
-
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <Code2 size={28} />
-                    </div>
-
-                    <h4>Your workspace is ready</h4>
-
-                    <p>
-                      CODEMIND is running locally. Repository registration
-                      and codebase analysis will be our next milestones.
-                    </p>
-
+                  <div className="hero-actions">
                     <button
                       className="primary-button"
                       type="button"
-                      onClick={checkBackend}
-                      disabled={backendStatus === "checking"}
+                      onClick={() => setActivePage("Repositories")}
                     >
-                      <Activity size={16} />
-
-                      {backendStatus === "checking"
-                        ? "Check backend connection"
-                        : "Check backend connection"}
+                      Add a repository
+                      <ArrowRight size={15} />
                     </button>
 
-                    <div
-                      className={`connection-status ${backendStatus}`}
+                    <button
+                      className="glass-button"
+                      type="button"
+                      onClick={() => setActivePage("AI Engineer")}
                     >
-                      <span className="status-dot" />
-
-                      {backendStatus === "checking"
-                        ? "Connection not checked"
-                        : backendStatus === "connected"
-                          ? "Backend connected successfully"
-                          : "Backend connection failed"}
-                    </div>
+                      Ask the AI Engineer
+                    </button>
                   </div>
-                </article>
+                </div>
 
-                <article className="panel system-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>System status</h3>
-                      <p>Local development environment.</p>
-                    </div>
+                <ChromeSphere />
+              </div>
 
-                    <Activity size={19} />
-                  </div>
+              <div className="stat-strip">
+                <div className="stat">
+                  <span>Repositories</span>
+                  <strong>{repositories ? repositories.length : "–"}</strong>
+                </div>
 
-                  <div className="system-row">
-                    <div className="system-indicator">
-                      <span className="status-dot" />
-                      <span>Frontend</span>
-                    </div>
+                <div className="stat">
+                  <span>Ready to ask</span>
+                  <strong>{repositories ? indexed.length : "–"}</strong>
+                </div>
 
-                    <span className="system-value">Running</span>
-                  </div>
-
-                  <div className="system-row">
-                    <div className="system-indicator">
-                      <span className="status-dot" />
-                      <span>API server</span>
-                    </div>
-
-                    <span className="system-value">Available</span>
-                  </div>
-
-                  <div className="system-row">
-                    <div className="system-indicator">
-                      <span className="status-dot" />
-                      <span>Database</span>
-                    </div>
-
-                    <span className="system-value">Container ready</span>
-                  </div>
-
-                  <div className="system-row">
-                    <div className="system-indicator">
-                      <span className="status-dot" />
-                      <span>Redis</span>
-                    </div>
-
-                    <span className="system-value">Container ready</span>
-                  </div>
-
-                  <div className="system-note">
-                    <ShieldCheck size={17} />
-
-                    <span>
-                      These are initial local indicators. Live database and
-                      Redis health checks will be implemented separately.
-                    </span>
-                  </div>
-                </article>
+                <div className="stat">
+                  <span>Files indexed</span>
+                  <strong>
+                    {repositories ? filesIndexed.toLocaleString() : "–"}
+                  </strong>
+                </div>
               </div>
             </>
           ) : activePage === "Repositories" ? (
             <RepositoriesPage
               onAsk={(repositoryId) => {
                 setSelectedRepositoryId(repositoryId);
-                navigateTo("AI Engineer");
+                setActivePage("AI Engineer");
               }}
             />
           ) : activePage === "AI Engineer" ? (
@@ -395,38 +205,21 @@ function App() {
               onSelectRepository={setSelectedRepositoryId}
             />
           ) : (
-            <div className="welcome-row">
-              <div>
-                <p className="eyebrow">CODEMIND WORKSPACE</p>
-
-                <h2>
-                  {activePage}
-                  <br />
-                  <span>Coming into focus.</span>
-                </h2>
-
-                <p className="welcome-description">
-                  This section is ready for its next implementation phase.
-                  The repository intelligence, analysis workflows, and
-                  engineering tools will be added here.
-                </p>
-
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={() => navigateTo("Overview")}
-                >
-                  <LayoutDashboard size={16} />
-                  Back to overview
-                </button>
-              </div>
+            <div className="placeholder">
+              <p className="eyebrow">Coming later</p>
+              <h2>{activePage}</h2>
+              <p className="hero-description">
+                This section arrives in a later phase of the roadmap.
+              </p>
+              <button
+                className="glass-button"
+                type="button"
+                onClick={() => setActivePage("Overview")}
+              >
+                Back to overview
+              </button>
             </div>
           )}
-
-          <footer className="dashboard-footer">
-            <span>CODEMIND · AI ENGINEERING WORKSPACE</span>
-            <span>PHASE 1 / FOUNDATION</span>
-          </footer>
         </section>
       </main>
     </div>
