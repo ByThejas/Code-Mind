@@ -2,7 +2,14 @@
 
 An AI software engineering workspace that understands entire code repositories.
 
-This repository is early: a FastAPI backend that can import a public GitHub repository at a pinned commit and index it into Postgres, a React + Vite web shell, and local Postgres (pgvector) and Redis services. The full plan is laid out in phases in the product blueprint.
+Point it at a public GitHub repository and it indexes the code at a pinned commit, then lets you:
+
+- **Ask questions** and get short answers that cite the exact files and lines they rest on, using free local models through Ollama.
+- **Search** the code by keyword, symbol name or meaning.
+- **See how the code connects**: which modules import which, and who calls a function and what it calls.
+- **Check what a change could break** before you make it, with the tests most likely to cover it.
+
+It has a FastAPI backend with an indexing worker, a React + Vite web app, and Postgres (pgvector) and Redis run with Docker Compose. It is still early; the full plan is laid out in phases in the product blueprint.
 
 ## Layout
 
@@ -10,7 +17,7 @@ This repository is early: a FastAPI backend that can import a public GitHub repo
 apps/
   api/   FastAPI backend (Python 3.12+)
   web/   React + Vite + Three.js frontend
-docs/                Design notes (ingestion, retrieval, graph and impact design)
+docs/                Design notes (ingestion, retrieval, graph, impact) and the search evaluation
 docker-compose.yml   Postgres 16 with pgvector, Redis 7
 ```
 
