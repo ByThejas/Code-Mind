@@ -8,13 +8,11 @@ import {
   Loader2,
   Search,
   Send,
-  X,
 } from "lucide-react";
 
 import {
   ApiError,
   type Evidence,
-  type FileContent,
   type Investigation,
   type InvestigationSummary,
   type Repository,
@@ -22,14 +20,18 @@ import {
   isServable,
   repositoryName,
 } from "../api";
-
-const VIEWER_CONTEXT_LINES = 6;
+import SourceViewer, { type SourceTarget } from "../components/SourceViewer";
 
 type Mode = "ask" | "search";
 
-interface SourceTarget {
-  evidence: Evidence;
-  snapshotId: string;
+function evidenceSource(evidence: Evidence, snapshotId: string): SourceTarget {
+  return {
+    path: evidence.path,
+    startLine: evidence.start_line,
+    endLine: evidence.end_line,
+    label: evidence.symbol_name,
+    snapshotId,
+  };
 }
 
 function errorMessage(error: unknown): string {
@@ -279,7 +281,7 @@ export default function AIEngineerPage({
             <AnswerView
               investigation={investigation}
               onOpenSource={(evidence) =>
-                setSource({ evidence, snapshotId: investigation.snapshot_id })
+                setSource(evidenceSource(evidence, investigation.snapshot_id))
               }
             />
           )}
@@ -294,7 +296,7 @@ export default function AIEngineerPage({
                   key={evidence.id}
                   evidence={evidence}
                   onOpen={() =>
-                    setSource({ evidence, snapshotId: searchResults.snapshotId })
+                    setSource(evidenceSource(evidence, searchResults.snapshotId))
                   }
                 />
               ))}
@@ -470,78 +472,5 @@ function EvidenceCard({ evidence, onOpen }: { evidence: Evidence; onOpen: () => 
         {evidence.text.split("\n").slice(0, 8).join("\n")}
       </pre>
     </button>
-  );
-}
-
-function SourceViewer({
-  repositoryId,
-  target,
-  onClose,
-}: {
-  repositoryId: string;
-  target: SourceTarget;
-  onClose: () => void;
-}) {
-  const { evidence, snapshotId } = target;
-  const [content, setContent] = useState<FileContent | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setContent(null);
-    setError(null);
-    api
-      .readFile(
-        repositoryId,
-        evidence.path,
-        Math.max(1, evidence.start_line - VIEWER_CONTEXT_LINES),
-        evidence.end_line + VIEWER_CONTEXT_LINES,
-        snapshotId,
-      )
-      .then((result) => !cancelled && setContent(result))
-      .catch((err) => !cancelled && setError(errorMessage(err)));
-    return () => {
-      cancelled = true;
-    };
-  }, [repositoryId, evidence, snapshotId]);
-
-  const lines = content ? content.text.replace(/\n$/, "").split("\n") : [];
-
-  return (
-    <article className="panel source-viewer">
-      <div className="panel-heading">
-        <div className="source-title">
-          <h3 className="mono">{evidence.path}</h3>
-          <p>
-            Lines {evidence.start_line}–{evidence.end_line}
-            {evidence.symbol_name ? ` · ${evidence.symbol_name}` : ""}
-          </p>
-        </div>
-        <button className="icon-button" type="button" aria-label="Close" onClick={onClose}>
-          <X size={16} />
-        </button>
-      </div>
-
-      {error && <p className="form-error">{error}</p>}
-      {!content && !error && (
-        <p className="muted-line">
-          <Loader2 size={13} className="spin" /> Loading source…
-        </p>
-      )}
-      {content && (
-        <pre className="code-view">
-          {lines.map((line, index) => {
-            const number = content.start_line + index;
-            const cited = number >= evidence.start_line && number <= evidence.end_line;
-            return (
-              <div key={number} className={`code-line ${cited ? "cited" : ""}`}>
-                <span className="line-number">{number}</span>
-                <span className="line-text">{line || " "}</span>
-              </div>
-            );
-          })}
-        </pre>
-      )}
-    </article>
   );
 }

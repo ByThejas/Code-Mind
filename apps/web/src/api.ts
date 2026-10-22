@@ -125,6 +125,69 @@ export interface FileContent {
   text: string;
 }
 
+export interface GraphInfo {
+  available: boolean;
+  stats: Record<string, unknown>;
+  warnings: { code: string; [key: string]: unknown }[];
+}
+
+export interface GraphNode {
+  id: string;
+  type: "file" | "symbol" | "module";
+  label: string;
+  path: string;
+  kind: string | null;
+  qualified_name: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  file_count: number | null;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  relation: string;
+  resolution: "static" | "inferred";
+  confidence: number;
+  provenance: string;
+  path: string;
+  line: number;
+  count: number;
+}
+
+export interface GraphResponse {
+  snapshot_id: string;
+  commit_sha: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  truncated: boolean;
+  graph: GraphInfo;
+}
+
+export interface CodeSymbol {
+  id: string;
+  name: string;
+  qualified_name: string;
+  kind: string;
+  path: string;
+  start_line: number;
+  end_line: number;
+}
+
+export interface SymbolDetail {
+  snapshot_id: string;
+  commit_sha: string;
+  symbol: CodeSymbol;
+  parent: CodeSymbol | null;
+  children: CodeSymbol[];
+  outgoing: GraphEdge[];
+  incoming: GraphEdge[];
+  nodes: GraphNode[];
+  truncated: boolean;
+  graph: GraphInfo;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -157,10 +220,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function query(params: Record<string, string | number | undefined>): string {
+function query(params: Record<string, string | number | null | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) search.set(key, String(value));
+    if (value !== undefined && value !== null) search.set(key, String(value));
   }
   return search.toString();
 }
@@ -208,6 +271,26 @@ export const api = {
 
   getInvestigation: (investigationId: string) =>
     request<Investigation>(`/api/v1/investigations/${investigationId}`),
+
+  moduleGraph: (repositoryId: string, depth: number, pathPrefix?: string | null) =>
+    request<GraphResponse>(
+      `/api/v1/repositories/${repositoryId}/graph/modules?${query({
+        depth,
+        path_prefix: pathPrefix || undefined,
+      })}`,
+    ),
+
+  searchSymbols: (repositoryId: string, q: string, limit = 30) =>
+    request<{ snapshot_id: string; commit_sha: string; items: CodeSymbol[] }>(
+      `/api/v1/repositories/${repositoryId}/symbols?${query({ q, limit })}`,
+    ),
+
+  symbolDetail: (repositoryId: string, symbolId: string, minConfidence = 0) =>
+    request<SymbolDetail>(
+      `/api/v1/repositories/${repositoryId}/symbols/${symbolId}?${query({
+        min_confidence: minConfidence,
+      })}`,
+    ),
 
   readFile: (
     repositoryId: string,
