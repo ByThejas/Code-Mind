@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
 import {
-  Activity,
   ArrowRight,
   Bot,
   GitBranch,
   LayoutDashboard,
+  Network,
   Settings,
   ShieldCheck,
   Terminal,
@@ -15,6 +15,7 @@ import {
 import { api, isServable, type Repository } from "./api";
 import ChromeSphere from "./components/ChromeSphere";
 import AIEngineerPage from "./pages/AIEngineerPage";
+import ArchitecturePage from "./pages/ArchitecturePage";
 import RepositoriesPage from "./pages/RepositoriesPage";
 import "./index.css";
 import "./pages/pages.css";
@@ -30,10 +31,10 @@ const MAIN_NAV: NavEntry[] = [
   { page: "Overview", icon: LayoutDashboard },
   { page: "Repositories", icon: GitBranch },
   { page: "AI Engineer", icon: Bot },
+  { page: "Architecture", icon: Network },
 ];
 
 const LATER_NAV: NavEntry[] = [
-  { page: "Code intelligence", icon: Activity },
   { page: "Analysis jobs", icon: Terminal },
   { page: "Security", icon: ShieldCheck },
   { page: "Settings", icon: Settings },
@@ -201,6 +202,11 @@ function App() {
             />
           ) : activePage === "AI Engineer" ? (
             <AIEngineerPage
+              repositoryId={selectedRepositoryId}
+              onSelectRepository={setSelectedRepositoryId}
+            />
+          ) : activePage === "Architecture" ? (
+            <ArchitecturePage
               repositoryId={selectedRepositoryId}
               onSelectRepository={setSelectedRepositoryId}
             />

@@ -14,9 +14,8 @@ In scope: import, call and inheritance extraction for Python, TypeScript/TSX and
 per-snapshot `graph_edges` table with provenance and confidence; symbol search and detail, neighbourhood, flow trace
 and module-graph endpoints; graph expansion in retrieval; relationship hints in the answer prompt; a flow benchmark.
 
-Out of scope (later): the visual architecture explorer in the web app (waits for the glass UI PR to merge),
-`tested_by`, `routes_to`, `reads_from`/`writes_to` edges and test linking (Phase 6), tsconfig path aliases, type
-inference for `obj.method()` calls, and an LLM-driven multi-step flow tracer.
+Out of scope (later): `tested_by`, `routes_to`, `reads_from`/`writes_to` edges and test linking (Phase 6), tsconfig
+path aliases, type inference for `obj.method()` calls, and an LLM-driven multi-step flow tracer.
 
 ## 2. Data model
 
@@ -136,7 +135,22 @@ real-repository evaluation set is Phase 8 work.
 On sqlalchemy's own source (≈250k lines of Python), parsing plus graph building takes about 4 seconds and yields
 13k edges: 2.7k imports, 9.1k calls (72% static), 1.3k inheritance edges, 41 dynamic imports.
 
-## 8. Known limitations
+## 8. Architecture explorer (web)
+
+The web app's Architecture page reads only the endpoints above; it adds no API.
+
+- **Module map** (`/graph/modules`): modules are laid out in layers by the longest import chain below them
+  (`src/lib/layeredLayout.ts`), so arrows run from code to what it depends on and foundations end up on the right,
+  or at the bottom when left-to-right would not fit. Cycles are broken by ignoring the edge that closes them, and
+  rows are ordered by the average position of each module's neighbours to keep edges short. Detail is automatic by
+  default: the shallowest of 2 to 4 directory levels at which modules import each other. Clicking a module lists
+  what it depends on and what uses it, each with the first import line; double-clicking opens the module.
+- **Symbols** (`/symbols`, `/symbols/{id}`): search a name, then see callers on the left and calls on the right,
+  with inferred edges dashed and name-only guesses (confidence below 0.6) hidden unless asked for. Every link opens
+  the calling line in the source viewer, and clicking a neighbour moves to it, with Back to retrace the path.
+- Snapshots without a graph show a note with a Re-index button.
+
+## 9. Known limitations
 
 - Calls on objects of unknown type (`repo.save()`) are only linked by a unique, uncommon method name, at 0.3.
 - Callbacks, decorators, dependency injection, framework routing and dynamic dispatch are invisible.
