@@ -48,9 +48,8 @@ class ValidatedAnswer:
     validation: dict[str, Any]
 
 
-def build_user_prompt(
-    question: str, evidence: list[Evidence], relations: list[EvidenceRelation] | None = None
-) -> str:
+def format_evidence(evidence: list[Evidence]) -> str:
+    """Evidence as tagged blocks that file content cannot break out of."""
     blocks = []
     for item in evidence:
         symbol = f' symbol="{item.symbol_name}"' if item.symbol_name else ""
@@ -60,7 +59,13 @@ def build_user_prompt(
             f'<evidence id="{item.id}" path="{item.path}" '
             f'lines="{item.start_line}-{item.end_line}"{symbol}>\n{body}\n</evidence>'
         )
-    prompt = f"Question: {question}\n\n" + "\n\n".join(blocks)
+    return "\n\n".join(blocks)
+
+
+def build_user_prompt(
+    question: str, evidence: list[Evidence], relations: list[EvidenceRelation] | None = None
+) -> str:
+    prompt = f"Question: {question}\n\n" + format_evidence(evidence)
     if relations:
         lines = "\n".join(f"- {r.describe()}" for r in relations)
         prompt += f"\n\nRelationships between the evidence (static analysis):\n{lines}"

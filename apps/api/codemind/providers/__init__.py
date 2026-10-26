@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from codemind.core.config import Settings
+from codemind.schemas.patches import PatchDraft
 from codemind.schemas.retrieval import AnswerDraft
 
 InputType = Literal["document", "query"]
@@ -30,11 +31,23 @@ class GeneratedAnswer:
     output_tokens: int | None = None
 
 
+@dataclass(frozen=True)
+class GeneratedPatch:
+    draft: PatchDraft
+    model_name: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+
 class AnswerModel(Protocol):
     model_name: str
 
     def answer(self, system: str, user: str) -> GeneratedAnswer:
         """A schema-valid answer draft. Raises CodemindError on provider failure or bad output."""
+        ...
+
+    def propose_patch(self, system: str, user: str) -> GeneratedPatch:
+        """A schema-valid patch draft. Raises CodemindError on provider failure or bad output."""
         ...
 
 

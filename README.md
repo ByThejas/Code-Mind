@@ -129,6 +129,21 @@ curl -X POST localhost:8000/api/v1/repositories/{id}/impact-analysis \
 
 The request can also take `"diff": "<output of git diff>"` and a `symbol_id` in place of a path. The design is in [docs/impact-design.md](docs/impact-design.md).
 
+### Propose a fix and approve it
+
+From an investigation, ask for a change and the local model writes it as exact find-and-replace edits, copied from the code it was shown. The server checks every edit against the indexed commit: the path must stay inside the repository and not be a secret or ignored file, the text to replace must appear exactly once, and the patch must stay within size limits. A patch that passes is `validated` and comes with a unified diff; one that fails is kept as `invalid` with the reason for each edit. You can also send your own `edits` to have them checked without a model.
+
+```bash
+curl -X POST localhost:8000/api/v1/investigations/{id}/patches \
+  -H 'content-type: application/json' \
+  -d '{"instruction": "Retry failed jobs at most three times"}'
+curl -X POST localhost:8000/api/v1/patches/{patch_id}/approve \
+  -H 'content-type: application/json' -d '{"diff_sha256": "<diff_sha256 from the patch>"}'
+curl -X POST localhost:8000/api/v1/patches/{patch_id}/export      # the diff, for git apply
+```
+
+Nothing is ever written to a repository. Approval names the SHA-256 of the diff you reviewed, export only works after approval, and every decision is recorded in an audit log. Apply an exported diff yourself with `git apply` on a checkout of the same commit. The design is in [docs/patch-design.md](docs/patch-design.md).
+
 ### 3. Run the web app
 
 ```bash

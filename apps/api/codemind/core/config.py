@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 300
     answer_context_tokens: int = 8_000
 
+    # Patch proposals (docs/patch-design.md).
+    patch_max_edits: int = 20
+    patch_max_files: int = 10
+    patch_max_changed_lines: int = 400
+    patch_context_tokens: int = 6_000
+
 
 @lru_cache
 def get_settings() -> Settings:
