@@ -144,6 +144,22 @@ curl -X POST localhost:8000/api/v1/patches/{patch_id}/export      # the diff, fo
 
 Nothing is ever written to a repository. Approval names the SHA-256 of the diff you reviewed, export only works after approval, and every decision is recorded in an audit log. Apply an exported diff yourself with `git apply` on a checkout of the same commit. The design is in [docs/patch-design.md](docs/patch-design.md).
 
+### Run a patch's tests in a sandbox
+
+A validated patch can be tested before you approve it. Code Mind writes a throwaway copy of the indexed commit with the patch applied and runs a fixed test command (`pytest` or `node-test`, never a command from the model) in a Docker container with no network, no root, a read-only filesystem, and CPU, memory, process and time limits. The run records the exact command, exit code, duration and the end of the output, and the copy is deleted afterwards.
+
+Running tests is off until you build the sandbox images and set `SANDBOX_ENABLED=true` in `.env` (Docker Desktop on Windows works):
+
+```bash
+docker build -t codemind-sandbox-python:1 -f sandbox/python.Dockerfile sandbox
+docker build -t codemind-sandbox-node:1 -f sandbox/node.Dockerfile sandbox
+curl -X POST localhost:8000/api/v1/patches/{patch_id}/test-runs \
+  -H 'content-type: application/json' -d '{"profile": "pytest"}'
+curl localhost:8000/api/v1/test-runs/{test_run_id}
+```
+
+The worker runs the tests, so keep `python worker.py` running. A run reports `passed` only when the command really ran and exited 0; otherwise it is `failed`, `no_tests`, `timed_out`, `error` or, when testing is off, `blocked`. The container has no network, so a repository whose tests need packages beyond pytest needs them added to the image. The design is in [docs/sandbox-design.md](docs/sandbox-design.md).
+
 ### 3. Run the web app
 
 ```bash

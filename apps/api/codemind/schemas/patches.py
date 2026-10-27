@@ -114,3 +114,42 @@ class PatchExport(BaseModel):
     diff: str
     diff_sha256: str
     commit_sha: str
+
+
+class TestRunRequest(BaseModel):
+    __test__ = False
+
+    profile: str = Field(
+        default="pytest",
+        max_length=40,
+        description="A server-defined test profile: pytest, node-test.",
+    )
+
+
+class TestRunOut(BaseModel):
+    __test__ = False
+
+    id: uuid.UUID
+    patch_id: uuid.UUID
+    profile: str
+    diff_sha256: str
+    status: str
+    image: str
+    command: list[str]
+    limits: dict[str, Any]
+    exit_code: int | None
+    duration_ms: int | None
+    output: str | None
+    output_truncated: bool
+    workspace_stats: dict[str, Any]
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class TestRunList(BaseModel):
+    __test__ = False
+
+    items: list[TestRunOut]
