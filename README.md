@@ -168,7 +168,7 @@ npm install
 npm run dev
 ```
 
-The web app serves on http://localhost:5173. The dev server forwards `/api` and `/health` to the API at http://127.0.0.1:8000 (set `CODEMIND_API_URL` to change it), so start the API and a worker first. The Repositories page imports a GitHub repository and shows its index job's progress; the AI Engineer page asks questions or searches code and opens each cited file at the cited lines; the Architecture page draws which parts of the repository import which (double-click a module to open it) and, for any function or class, who calls it and what it calls, each link opening the line that creates it. For a build served without the dev server, set `VITE_API_URL` to the API's address and add the web origin to the API's `CORS_ORIGINS`.
+The web app serves on http://localhost:5173. The dev server forwards `/api` and `/health` to the API at http://127.0.0.1:8000 (set `CODEMIND_API_URL` to change it), so start the API and a worker first. The Repositories page imports a GitHub repository and shows its index job's progress; the AI Engineer page asks questions or searches code and opens each cited file at the cited lines; the Architecture page draws which parts of the repository import which (double-click a module to open it) and, for any function or class, who calls it and what it calls, each link opening the line that creates it. Under an answer on the AI Engineer page, **Propose a fix** drafts a patch, shows its diff (or why it was rejected), runs its tests in the sandbox, and lets you approve, download or reject it. For a build served without the dev server, set `VITE_API_URL` to the API's address and add the web origin to the API's `CORS_ORIGINS`.
 
 ## Development
 
