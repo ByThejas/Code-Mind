@@ -57,7 +57,7 @@ excerpts of the repository's files with their paths and line ranges. Reply with 
 Reply with JSON only, matching the requested schema."""
 
 
-def _limits(settings: Settings) -> PatchLimits:
+def patch_limits(settings: Settings) -> PatchLimits:
     return PatchLimits(
         max_edits=settings.patch_max_edits,
         max_files=settings.patch_max_files,
@@ -66,7 +66,7 @@ def _limits(settings: Settings) -> PatchLimits:
     )
 
 
-def _snapshot_files(
+def snapshot_files(
     db: Session, snapshot_id: uuid.UUID, edits: list[Edit]
 ) -> dict[str, SnapshotFile]:
     paths = set()
@@ -185,8 +185,8 @@ def create_patch(
         to_check = [Edit(e["path"], e["old_text"], e["new_text"]) for e in patch.edits]
         result = check_edits(
             to_check,
-            _snapshot_files(db, snapshot.id, to_check),
-            _limits(settings),
+            snapshot_files(db, snapshot.id, to_check),
+            patch_limits(settings),
             allowed_paths,
         )
         patch.files = [f.to_dict() for f in result.files]

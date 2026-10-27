@@ -12,13 +12,15 @@ from codemind.api.dependencies import (
     get_current_workspace,
     get_db,
     get_embedding_provider,
+    get_enqueue_test_run,
 )
 from codemind.api.v1.routes.files import servable_snapshot
 from codemind.core.config import settings
 from codemind.core.errors import NotFoundError
-from codemind.db.models import Investigation, Patch, RepositorySnapshot
+from codemind.db.models import Investigation, Patch, RepositorySnapshot, TestRun
 from codemind.patches import service
 from codemind.providers import AnswerModel, EmbeddingProvider
+from codemind.sandbox import runs
 from codemind.schemas.patches import (
     PatchApproval,
     PatchExport,
@@ -27,6 +29,9 @@ from codemind.schemas.patches import (
     PatchRejection,
     PatchRequest,
     PatchSummary,
+    TestRunList,
+    TestRunOut,
+    TestRunRequest,
 )
 
 router = APIRouter(tags=["Patches"])
@@ -35,6 +40,7 @@ Db = Annotated[Session, Depends(get_db)]
 WorkspaceId = Annotated[uuid.UUID, Depends(get_current_workspace)]
 Embedder = Annotated[EmbeddingProvider | None, Depends(get_embedding_provider)]
 Model = Annotated[AnswerModel | None, Depends(get_answer_model)]
+EnqueueTestRun = Annotated[runs.Enqueue, Depends(get_enqueue_test_run)]
 
 
 @router.post(
@@ -135,6 +141,53 @@ def export_patch(patch_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> Patc
         diff_sha256=patch.diff_sha256,
         commit_sha=commit_sha,
     )
+
+
+@router.post(
+    "/patches/{patch_id}/test-runs",
+    response_model=TestRunOut,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_test_run(
+    patch_id: uuid.UUID,
+    body: TestRunRequest,
+    db: Db,
+    workspace_id: WorkspaceId,
+    enqueue: EnqueueTestRun,
+) -> TestRunOut:
+    """Run a fixed test profile on a throwaway patched copy of the snapshot, in a sandbox.
+
+    Returns at once with a queued run; poll `GET /test-runs/{id}`. When running tests is turned off
+    the run is recorded as `blocked`, never as passed.
+    """
+    patch = _owned_patch(db, workspace_id, patch_id)
+    run = runs.create_test_run(db, patch, body.profile, settings, enqueue)
+    return TestRunOut.model_validate(run, from_attributes=True)
+
+
+@router.get("/patches/{patch_id}/test-runs", response_model=TestRunList)
+def list_test_runs(patch_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> TestRunList:
+    patch = _owned_patch(db, workspace_id, patch_id)
+    rows = list(
+        db.scalars(
+            select(TestRun)
+            .where(TestRun.patch_id == patch.id)
+            .order_by(TestRun.created_at.desc(), TestRun.id.desc())
+            .limit(50)
+        )
+    )
+    for run in rows:
+        runs.mark_lost_runs(db, run, settings)
+    return TestRunList(items=[TestRunOut.model_validate(r, from_attributes=True) for r in rows])
+
+
+@router.get("/test-runs/{test_run_id}", response_model=TestRunOut)
+def get_test_run(test_run_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> TestRunOut:
+    run = db.get(TestRun, test_run_id)
+    if run is None or run.workspace_id != workspace_id:
+        raise NotFoundError("test_run_not_found", "No test run with that id.")
+    runs.mark_lost_runs(db, run, settings)
+    return TestRunOut.model_validate(run, from_attributes=True)
 
 
 def _owned_investigation(

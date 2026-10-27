@@ -8,8 +8,8 @@ Turn "how should this change?" into a reviewable patch without ever touching a r
 Phase 7: no patch is applied without approval; test status reflects actual execution.
 
 This slice covers the patch format, validation against the indexed snapshot, the approval state machine, export of
-the approved diff, and an audit log. Out of scope here and planned next: running tests on a patched copy in a
-restricted sandbox (`test_runs`, blueprint §13.2), and a patch review view in the web app.
+the approved diff, and an audit log. Running tests on a patched copy is in docs/sandbox-design.md. Planned next: a patch review view
+in the web app.
 
 ## 2. Patch format: exact edits, not hunks
 
@@ -63,7 +63,8 @@ create ─────┤                              ├──► rejected
   diff anywhere; that stays the developer's step (`git apply` on a checkout of the same commit).
 - Invalid and failed patches are stored, not discarded, so failures are visible and measurable.
 
-Sandbox states from blueprint §13.1 (`sandbox_applied`, `tested`, `needs_review`) arrive with test runs.
+Test results are kept as separate test runs (docs/sandbox-design.md) rather than as patch states, so a patch can
+be tested several times and each result names the exact diff it tested.
 
 ## 5. Generation
 

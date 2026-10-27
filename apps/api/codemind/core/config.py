@@ -66,6 +66,21 @@ class Settings(BaseSettings):
     patch_max_changed_lines: int = 400
     patch_context_tokens: int = 6_000
 
+    # Test runs in a throwaway Docker container (docs/sandbox-design.md). Off until turned on.
+    sandbox_enabled: bool = False
+    sandbox_queue: str = "sandbox"
+    sandbox_docker: str = "docker"
+    sandbox_python_image: str = "codemind-sandbox-python:1"
+    sandbox_node_image: str = "codemind-sandbox-node:1"
+    sandbox_timeout_seconds: int = 300
+    sandbox_memory_mb: int = 1024
+    sandbox_cpus: float = 1.0
+    sandbox_pids: int = 256
+    sandbox_tmp_mb: int = 256
+    sandbox_output_bytes: int = 64_000  # how much of the end of the output is kept
+    sandbox_max_output_bytes: int = 10_000_000  # the run is stopped past this much output
+    sandbox_max_workspace_bytes: int = 200_000_000
+
 
 @lru_cache
 def get_settings() -> Settings:

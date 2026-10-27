@@ -64,6 +64,7 @@ class FileDiff:
     additions: int
     deletions: int
     diff: str
+    new_text: str  # the whole file after the patch
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -311,4 +312,4 @@ def _diff(path: str, old: str | None, new: str) -> FileDiff:
             line += "\n\\ No newline at end of file\n"
         out.append(line)
     status: Literal["added", "modified"] = "added" if old is None else "modified"
-    return FileDiff(path, status, additions, deletions, "".join(out))
+    return FileDiff(path, status, additions, deletions, "".join(out), new)

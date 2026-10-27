@@ -363,3 +363,55 @@ class AuditEvent(UUIDPrimaryKey, Base):
     resource_id: Mapped[uuid.UUID] = mapped_column()
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class TestRunStatus(StrEnum):
+    """What actually happened. A run that could not execute is never reported as passed."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    PASSED = "passed"  # the command exited 0
+    FAILED = "failed"  # the command exited non-zero
+    NO_TESTS = "no_tests"  # the test runner found nothing to run
+    TIMED_OUT = "timed_out"
+    ERROR = "error"  # the sandbox could not run the command (image missing, workspace too big, …)
+    BLOCKED = "blocked"  # running tests is turned off on this server
+
+
+FINISHED_TEST_RUN_STATUSES = (
+    TestRunStatus.PASSED,
+    TestRunStatus.FAILED,
+    TestRunStatus.NO_TESTS,
+    TestRunStatus.TIMED_OUT,
+    TestRunStatus.ERROR,
+    TestRunStatus.BLOCKED,
+)
+
+
+class TestRun(UUIDPrimaryKey, Base):
+    """One run of a fixed test profile on a disposable, patched copy of the snapshot."""
+
+    __test__ = False  # not a pytest test class
+    __tablename__ = "test_runs"
+    __table_args__ = (Index("ix_test_runs_patch_created", "patch_id", "created_at"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    patch_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("patches.id", ondelete="CASCADE"))
+    profile: Mapped[str] = mapped_column(String(40))
+    diff_sha256: Mapped[str] = mapped_column(String(64))  # the exact diff that was tested
+    status: Mapped[str] = mapped_column(String(20), default=TestRunStatus.QUEUED)
+    image: Mapped[str] = mapped_column(String(300))
+    command: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    limits: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    exit_code: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    output: Mapped[str | None] = mapped_column(Text)  # the end of stdout and stderr, bounded
+    output_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    workspace_stats: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(60))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]

@@ -24,6 +24,21 @@ def enqueue_index_job(job_id: str) -> None:
     )
 
 
+@cache
+def get_sandbox_queue() -> Queue:
+    return Queue(settings.sandbox_queue, connection=Redis.from_url(settings.redis_url))
+
+
+def enqueue_test_run(run_id: str) -> None:
+    get_sandbox_queue().enqueue(
+        "codemind.sandbox.tasks.run_tests",
+        run_id,
+        job_id=f"test-run-{run_id}",
+        job_timeout=settings.sandbox_timeout_seconds + 120,  # the runner stops it first
+        failure_ttl=7 * 24 * 3600,
+    )
+
+
 def cancel_queued_job(job_id: str) -> None:
     from rq.exceptions import NoSuchJobError
     from rq.job import Job as RQJob
