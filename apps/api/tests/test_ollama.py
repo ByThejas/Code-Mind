@@ -86,3 +86,24 @@ def test_chat_retries_once_on_invalid_output() -> None:
     with pytest.raises(CodemindError) as invalid:
         OllamaAnswerModel(SETTINGS).answer("s", "u")
     assert invalid.value.code == "answer_invalid"
+
+
+@respx.mock
+def test_patch_requests_the_patch_schema() -> None:
+    patch = {
+        "summary": "Say hi.",
+        "edits": [{"path": "src/app.py", "old_text": "hello", "new_text": "hi"}],
+        "limitations": [],
+    }
+    route = respx.post(f"{URL}/api/chat").respond(
+        json={"message": {"content": json.dumps(patch)}, "prompt_eval_count": 9}
+    )
+    result = OllamaAnswerModel(SETTINGS).propose_patch("system", "user")
+    assert result.draft.edits[0].new_text == "hi" and result.input_tokens == 9
+    sent = json.loads(route.calls.last.request.content)
+    assert set(sent["format"]["required"]) == set(patch)
+
+    route.respond(json={"message": {"content": "{}"}})
+    with pytest.raises(CodemindError) as invalid:
+        OllamaAnswerModel(SETTINGS).propose_patch("s", "u")
+    assert invalid.value.code == "patch_invalid"

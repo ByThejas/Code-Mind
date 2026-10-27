@@ -294,3 +294,72 @@ class Investigation(UUIDPrimaryKey, Base):
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     finished_at: Mapped[datetime | None]
+
+
+class PatchStatus(StrEnum):
+    """Lifecycle of a proposed change (blueprint §13.1). Sandbox states arrive with test runs."""
+
+    VALIDATED = "validated"  # every edit applied cleanly to the snapshot; ready for review
+    INVALID = "invalid"  # some edit failed validation; kept so the reasons can be shown
+    FAILED = "failed"  # the model could not produce a patch
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPORTED = "exported"  # an approved diff was handed out at least once
+
+
+class Patch(UUIDPrimaryKey, Base):
+    """A proposed code change for one investigation, checked against its snapshot.
+
+    Nothing is ever written to a repository: the diff only leaves through an explicit export, and
+    only after approval of that exact diff (its SHA-256).
+    """
+
+    __tablename__ = "patches"
+    __table_args__ = (Index("ix_patches_investigation_created", "investigation_id", "created_at"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repository_snapshots.id", ondelete="CASCADE")
+    )
+    investigation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("investigations.id", ondelete="CASCADE")
+    )
+    instruction: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(10))  # "model" | "manual"
+    status: Mapped[str] = mapped_column(String(20))
+    summary: Mapped[str | None] = mapped_column(Text)
+    limitations: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    edits: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    files: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    diff: Mapped[str | None] = mapped_column(Text)
+    diff_sha256: Mapped[str | None] = mapped_column(String(64))
+    validation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(60))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    decided_at: Mapped[datetime | None]
+    decided_by: Mapped[str | None] = mapped_column(String(200))
+    exported_at: Mapped[datetime | None]
+
+
+class AuditEvent(UUIDPrimaryKey, Base):
+    """A security-relevant action: who did what to which resource, and when (blueprint §13.3)."""
+
+    __tablename__ = "audit_events"
+    __table_args__ = (Index("ix_audit_events_resource", "resource_type", "resource_id"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    actor: Mapped[str] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(60))
+    resource_type: Mapped[str] = mapped_column(String(40))
+    resource_id: Mapped[uuid.UUID] = mapped_column()
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)

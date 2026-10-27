@@ -6,19 +6,22 @@ Nothing leaves the machine running Ollama. Pull the models once with
 
 import logging
 import time
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from codemind.core.config import Settings
 from codemind.core.errors import CodemindError
-from codemind.providers import GeneratedAnswer, InputType
+from codemind.providers import GeneratedAnswer, GeneratedPatch, InputType
+from codemind.schemas.patches import PatchDraft
 from codemind.schemas.retrieval import AnswerDraft
 
 log = logging.getLogger(__name__)
 
 RETRY_DELAYS = (1.0, 4.0)  # transient failures: two retries, then give up
+
+Draft = TypeVar("Draft", bound=BaseModel)
 
 
 class _OllamaClient:
@@ -93,11 +96,31 @@ class OllamaAnswerModel:
         )
 
     def answer(self, system: str, user: str) -> GeneratedAnswer:
+        draft, data = self._structured(system, user, AnswerDraft, "answer")
+        return GeneratedAnswer(
+            draft=draft,
+            model_name=self.model_name,
+            input_tokens=data.get("prompt_eval_count"),
+            output_tokens=data.get("eval_count"),
+        )
+
+    def propose_patch(self, system: str, user: str) -> GeneratedPatch:
+        draft, data = self._structured(system, user, PatchDraft, "patch")
+        return GeneratedPatch(
+            draft=draft,
+            model_name=self.model_name,
+            input_tokens=data.get("prompt_eval_count"),
+            output_tokens=data.get("eval_count"),
+        )
+
+    def _structured(
+        self, system: str, user: str, schema: type[Draft], kind: str
+    ) -> tuple[Draft, dict[str, Any]]:
         body = {
             "model": self.model_name,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "stream": False,
-            "format": AnswerDraft.model_json_schema(),
+            "format": schema.model_json_schema(),
             # Ollama's default context is far smaller than the evidence we send.
             "options": {"temperature": 0, "num_ctx": self.context_tokens},
         }
@@ -105,16 +128,9 @@ class OllamaAnswerModel:
             data = self._client.post("/api/chat", body)
             content = (data.get("message") or {}).get("content", "")
             try:
-                draft = AnswerDraft.model_validate_json(content)
+                return schema.model_validate_json(content), data
             except ValidationError:
-                log.warning("answer model output failed validation (attempt %s)", attempt + 1)
-                continue
-            return GeneratedAnswer(
-                draft=draft,
-                model_name=self.model_name,
-                input_tokens=data.get("prompt_eval_count"),
-                output_tokens=data.get("eval_count"),
-            )
+                log.warning("%s model output failed validation (attempt %s)", kind, attempt + 1)
         raise CodemindError(
-            "answer_invalid", "The answer model did not return a valid answer.", status_code=502
+            f"{kind}_invalid", f"The model did not return a valid {kind}.", status_code=502
         )
