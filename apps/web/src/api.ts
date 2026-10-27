@@ -188,6 +188,103 @@ export interface SymbolDetail {
   graph: GraphInfo;
 }
 
+export type PatchStatus =
+  | "validated"
+  | "invalid"
+  | "failed"
+  | "approved"
+  | "rejected"
+  | "exported";
+
+export interface PatchIssue {
+  code: string;
+  message: string;
+  edit_index: number | null;
+  path: string | null;
+}
+
+export interface PatchFile {
+  path: string;
+  status: "added" | "modified";
+  additions: number;
+  deletions: number;
+}
+
+export interface Patch {
+  id: string;
+  investigation_id: string;
+  repository_id: string;
+  snapshot_id: string;
+  commit_sha: string;
+  instruction: string;
+  source: "model" | "manual";
+  status: PatchStatus;
+  summary: string | null;
+  limitations: string[];
+  edits: { path: string; old_text: string; new_text: string }[];
+  files: PatchFile[];
+  diff: string | null;
+  diff_sha256: string | null;
+  validation: { errors: PatchIssue[]; warnings: PatchIssue[] };
+  error_code: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  decided_at: string | null;
+  decided_by: string | null;
+  exported_at: string | null;
+}
+
+export interface PatchSummary {
+  id: string;
+  instruction: string;
+  source: "model" | "manual";
+  status: PatchStatus;
+  files: PatchFile[];
+  created_at: string;
+}
+
+export interface PatchExport {
+  patch_id: string;
+  filename: string;
+  diff: string;
+  diff_sha256: string;
+  commit_sha: string;
+}
+
+export type TestRunStatus =
+  | "queued"
+  | "running"
+  | "passed"
+  | "failed"
+  | "no_tests"
+  | "timed_out"
+  | "error"
+  | "blocked";
+
+export interface TestRun {
+  id: string;
+  patch_id: string;
+  profile: string;
+  diff_sha256: string;
+  status: TestRunStatus;
+  image: string;
+  command: string[];
+  limits: Record<string, number>;
+  exit_code: number | null;
+  duration_ms: number | null;
+  output: string | null;
+  output_truncated: boolean;
+  workspace_stats: Record<string, number>;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export const TEST_PROFILES = ["pytest", "node-test"] as const;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -271,6 +368,43 @@ export const api = {
 
   getInvestigation: (investigationId: string) =>
     request<Investigation>(`/api/v1/investigations/${investigationId}`),
+
+  proposePatch: (investigationId: string, instruction: string) =>
+    request<Patch>(`/api/v1/investigations/${investigationId}/patches`, {
+      method: "POST",
+      body: JSON.stringify({ instruction }),
+    }),
+
+  listPatches: (investigationId: string) =>
+    request<{ items: PatchSummary[] }>(`/api/v1/investigations/${investigationId}/patches`),
+
+  getPatch: (patchId: string) => request<Patch>(`/api/v1/patches/${patchId}`),
+
+  approvePatch: (patchId: string, diffSha256: string) =>
+    request<Patch>(`/api/v1/patches/${patchId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ diff_sha256: diffSha256 }),
+    }),
+
+  rejectPatch: (patchId: string, reason?: string) =>
+    request<Patch>(`/api/v1/patches/${patchId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || null }),
+    }),
+
+  exportPatch: (patchId: string) =>
+    request<PatchExport>(`/api/v1/patches/${patchId}/export`, { method: "POST" }),
+
+  runTests: (patchId: string, profile: string) =>
+    request<TestRun>(`/api/v1/patches/${patchId}/test-runs`, {
+      method: "POST",
+      body: JSON.stringify({ profile }),
+    }),
+
+  listTestRuns: (patchId: string) =>
+    request<{ items: TestRun[] }>(`/api/v1/patches/${patchId}/test-runs`),
+
+  getTestRun: (testRunId: string) => request<TestRun>(`/api/v1/test-runs/${testRunId}`),
 
   moduleGraph: (repositoryId: string, depth: number, pathPrefix?: string | null) =>
     request<GraphResponse>(

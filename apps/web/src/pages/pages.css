@@ -1001,3 +1001,286 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Patch review (AI Engineer) */
+
+
+.patch-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.patch-form input,
+.test-run-start select {
+  min-height: 32px;
+  padding: 0 11px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  background: var(--glass-well);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.patch-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.patch-form input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.patch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+
+.patch-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  color: #c3c9d8;
+  font-size: 11px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.patch-list button span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patch-list button:hover,
+.patch-list button.active {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.patch-status {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  color: #a2abc0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+
+.patch-status.validated,
+.patch-status.approved,
+.patch-status.exported,
+.patch-status.passed {
+  color: var(--green);
+  background: rgba(90, 220, 160, 0.1);
+}
+
+.patch-status.no_tests,
+.patch-status.blocked,
+.patch-status.timed_out {
+  color: #e5bc68;
+  background: rgba(230, 190, 100, 0.1);
+}
+
+.patch-status.invalid,
+.patch-status.failed,
+.patch-status.error {
+  color: #ff8585;
+  background: rgba(255, 90, 90, 0.1);
+}
+
+.patch-view {
+  padding-top: 16px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.patch-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #687287;
+  font-size: 10px;
+}
+
+.patch-error {
+  margin: 10px 0 0;
+  color: #ff8585;
+  font-size: 11px;
+}
+
+.issue-list {
+  padding-left: 18px;
+  margin: 0;
+  color: #c3c9d8;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.issue-list .mono {
+  color: #ff8585;
+}
+
+.issue-list.warnings {
+  margin-top: 10px;
+  color: #e5bc68;
+}
+
+.patch-files {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  margin: 14px 0 0;
+  color: #c3c9d8;
+  font-size: 10.5px;
+  list-style: none;
+}
+
+.patch-files li {
+  display: flex;
+  gap: 8px;
+}
+
+.patch-files li span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.patch-files small {
+  color: #687287;
+}
+
+.patch-files .added,
+.diff-line.add {
+  color: var(--green);
+}
+
+.patch-files .removed,
+.diff-line.del {
+  color: #ff8585;
+}
+
+.diff-view {
+  max-height: 420px;
+  padding: 8px 0;
+  margin: 10px 0 0;
+  overflow: auto;
+  color: #c3c9d8;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 1.6;
+  background: rgba(2, 4, 8, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.diff-line {
+  display: block;
+  min-width: max-content;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.diff-line.add {
+  background: rgba(90, 220, 160, 0.07);
+}
+
+.diff-line.del {
+  background: rgba(255, 90, 90, 0.07);
+}
+
+.diff-line.hunk {
+  color: #8b8d96;
+}
+
+.diff-line.meta {
+  color: #e4e6ec;
+  font-weight: 600;
+}
+
+.patch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.test-run-start {
+  display: flex;
+  gap: 8px;
+}
+
+.test-run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 10px 0 0;
+  list-style: none;
+}
+
+.test-run-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 8px;
+  color: #c3c9d8;
+  font-size: 11px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.test-run-row:hover {
+  background: var(--surface-hover);
+}
+
+.test-run-row small {
+  margin-left: auto;
+  color: #687287;
+  font-size: 10px;
+}
+
+.test-run-detail {
+  padding: 0 8px 8px;
+}
+
+.muted-command {
+  margin: 8px 0 0;
+  color: #687287;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.test-output {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+  .patch-form {
+    flex-direction: column;
+  }
+}

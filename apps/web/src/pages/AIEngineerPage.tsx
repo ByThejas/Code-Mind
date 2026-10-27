@@ -20,6 +20,7 @@ import {
   isServable,
   repositoryName,
 } from "../api";
+import PatchPanel from "../components/PatchPanel";
 import SourceViewer, { type SourceTarget } from "../components/SourceViewer";
 
 type Mode = "ask" | "search";
@@ -284,6 +285,10 @@ export default function AIEngineerPage({
                 setSource(evidenceSource(evidence, investigation.snapshot_id))
               }
             />
+          )}
+
+          {mode === "ask" && investigation?.status === "succeeded" && (
+            <PatchPanel investigationId={investigation.id} />
           )}
 
           {mode === "search" && searchResults && (
