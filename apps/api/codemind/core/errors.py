@@ -13,11 +13,13 @@ class CodemindError(Exception):
         *,
         status_code: int | None = None,
         retryable: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.retryable = retryable
+        self.headers = headers or {}
         if status_code is not None:
             self.status_code = status_code
 

@@ -11,6 +11,7 @@ from codemind.api.dependencies import (
     get_db,
     get_embedding_provider,
 )
+from codemind.api.ratelimit import rate_limit
 from codemind.api.v1.routes.files import servable_snapshot
 from codemind.api.v1.routes.repositories import get_owned_repository
 from codemind.core.config import settings
@@ -37,6 +38,7 @@ Model = Annotated[AnswerModel | None, Depends(get_answer_model)]
     "/repositories/{repository_id}/investigations",
     response_model=InvestigationOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("model"))],
 )
 def create_investigation(
     repository_id: uuid.UUID,

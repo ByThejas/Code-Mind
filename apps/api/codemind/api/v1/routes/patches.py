@@ -14,6 +14,7 @@ from codemind.api.dependencies import (
     get_embedding_provider,
     get_enqueue_test_run,
 )
+from codemind.api.ratelimit import rate_limit
 from codemind.api.v1.routes.files import servable_snapshot
 from codemind.core.config import settings
 from codemind.core.errors import NotFoundError
@@ -47,6 +48,7 @@ EnqueueTestRun = Annotated[runs.Enqueue, Depends(get_enqueue_test_run)]
     "/investigations/{investigation_id}/patches",
     response_model=PatchOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("model"))],
 )
 def create_patch(
     investigation_id: uuid.UUID,
@@ -147,6 +149,7 @@ def export_patch(patch_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) -> Patc
     "/patches/{patch_id}/test-runs",
     response_model=TestRunOut,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit("sandbox"))],
 )
 def create_test_run(
     patch_id: uuid.UUID,
