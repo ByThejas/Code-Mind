@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from codemind.api.dependencies import get_current_workspace, get_db, get_embedding_provider
 from codemind.api.v1.routes.files import servable_snapshot
 from codemind.core.config import settings
+from codemind.core.errors import CodemindError
 from codemind.providers import EmbeddingProvider
 from codemind.retrieval.search import retrieve
 from codemind.schemas.retrieval import EvidenceOut, SearchResponse
@@ -29,6 +30,11 @@ def search(
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> SearchResponse:
     """Hybrid retrieval only, with no answer model: the evidence a question would be answered from."""
+    q = q.strip()
+    if len(q) < 2:
+        raise CodemindError(
+            "invalid_query", "The query must have at least 2 characters.", status_code=422
+        )
     snapshot = servable_snapshot(db, workspace_id, repository_id, snapshot_id)
     result = retrieve(
         db,

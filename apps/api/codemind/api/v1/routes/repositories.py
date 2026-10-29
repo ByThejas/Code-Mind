@@ -72,10 +72,12 @@ def list_repositories(
     query = select(Repository).where(Repository.workspace_id == workspace_id)
     if cursor is not None:
         anchor = db.get(Repository, cursor)
-        if anchor is not None and anchor.workspace_id == workspace_id:
-            query = query.where(
-                tuple_(Repository.created_at, Repository.id) > (anchor.created_at, anchor.id)
-            )
+        if anchor is None or anchor.workspace_id != workspace_id:
+            # Ignoring it would restart from page one and could loop a client forever.
+            raise CodemindError("invalid_cursor", "Unknown cursor.", status_code=422)
+        query = query.where(
+            tuple_(Repository.created_at, Repository.id) > (anchor.created_at, anchor.id)
+        )
     repos = list(db.scalars(query.order_by(Repository.created_at, Repository.id).limit(limit + 1)))
     page, more = repos[:limit], len(repos) > limit
     latest = _latest_snapshots(db, [r.id for r in page])
