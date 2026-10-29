@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 # What the model must return when asked for a patch: exact find-and-replace edits.
 
@@ -32,7 +32,9 @@ class PatchEditIn(BaseModel):
 
 
 class PatchRequest(BaseModel):
-    instruction: str = Field(min_length=3, max_length=2000, description="The change you want.")
+    instruction: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=2000)
+    ] = Field(description="The change you want.")
     edits: list[PatchEditIn] | None = Field(
         default=None,
         max_length=20,

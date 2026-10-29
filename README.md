@@ -48,7 +48,9 @@ In a second terminal (same folder and virtualenv), start the indexing worker:
 python worker.py
 ```
 
-The API serves on http://localhost:8000. Try `GET /health`, or open http://localhost:8000/docs.
+The API serves on http://localhost:8000. Try `GET /health`, or open http://localhost:8000/docs. `GET /health/ready` checks that Postgres and Redis answer and that the database is at the latest migration; it returns 503 and names what is wrong (for example `"migrations": "behind"` means run `alembic upgrade head`).
+
+Every error has the same shape, `{"error": {"code", "message", "request_id"}}`, and every response carries an `X-Request-ID` header. Send your own `X-Request-ID` (8 to 64 letters, digits, `.`, `_` or `-`) to follow one request through the logs.
 
 Settings are read from the root `.env` file; copy `.env.example` to start. `GITHUB_TOKEN` is optional: public repositories work without it, but GitHub then allows only 60 API requests an hour. See `apps/api/codemind/core/config.py` for every setting and its default.
 

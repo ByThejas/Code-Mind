@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from codemind.schemas.ingestion import ORMModel
 
@@ -59,7 +59,10 @@ class SearchResponse(BaseModel):
 
 
 class InvestigationRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=2000)
+    # Surrounding whitespace is dropped first, so a blank question is rejected.
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=2000)
+    ]
     snapshot_id: uuid.UUID | None = None
 
 
