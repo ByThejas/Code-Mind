@@ -12,6 +12,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from codemind.api.dependencies import get_db, get_enqueue, get_github
+from codemind.api.ratelimit import get_rate_limiter
 from codemind.core.config import Settings
 from codemind.main import app
 from codemind.repositories.github import GitHubClient
@@ -100,7 +101,12 @@ def client(
             yield gh
 
     app.dependency_overrides.update(
-        {get_db: db, get_github: github, get_enqueue: lambda: enqueued.append}
+        {
+            get_db: db,
+            get_github: github,
+            get_enqueue: lambda: enqueued.append,
+            get_rate_limiter: lambda: None,  # tests/test_rate_limits.py covers limits
+        }
     )
     with respx.mock(assert_all_called=False) as mock:
         mock.get(f"{API}/repos/owner/repo").respond(json=REPO_JSON)

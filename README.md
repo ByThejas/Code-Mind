@@ -52,6 +52,10 @@ The API serves on http://localhost:8000. Try `GET /health`, or open http://local
 
 Every error has the same shape, `{"error": {"code", "message", "request_id"}}`, and every response carries an `X-Request-ID` header. Send your own `X-Request-ID` (8 to 64 letters, digits, `.`, `_` or `-`) to follow one request through the logs.
 
+### Rate limits
+
+The endpoints that call the local model or start work are limited per workspace per minute: questions and patch drafts (10), test runs (5), and repository imports and re-index requests (10). Past a limit the API answers `429` with code `rate_limited` and a `Retry-After` header in seconds. Reads are never limited. Change the numbers with `RATE_LIMIT_MODEL_PER_MINUTE`, `RATE_LIMIT_SANDBOX_PER_MINUTE` and `RATE_LIMIT_INDEX_PER_MINUTE` (0 turns one off), or set `RATE_LIMIT_ENABLED=false`. Counts live in Redis; if Redis is down, requests are let through and a warning is logged.
+
 Settings are read from the root `.env` file; copy `.env.example` to start. `GITHUB_TOKEN` is optional: public repositories work without it, but GitHub then allows only 60 API requests an hour. See `apps/api/codemind/core/config.py` for every setting and its default.
 
 #### On Windows

@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from codemind.api.dependencies import get_current_workspace, get_db, get_enqueue, get_github
+from codemind.api.ratelimit import rate_limit
 from codemind.core.config import settings
 from codemind.core.errors import CodemindError, NotFoundError
 from codemind.db.models import Job, JobStatus, Repository, RepositorySnapshot
@@ -46,6 +47,7 @@ EnqueueDep = Annotated[Enqueue, Depends(get_enqueue)]
     response_model=IndexResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={200: {"description": "That commit is already indexed; no job was queued."}},
+    dependencies=[Depends(rate_limit("index"))],
 )
 def create_repository(
     body: ImportRepositoryRequest,
@@ -98,6 +100,7 @@ def get_repository(repository_id: uuid.UUID, db: Db, workspace_id: WorkspaceId) 
     response_model=IndexResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={200: {"description": "That commit is already indexed; no job was queued."}},
+    dependencies=[Depends(rate_limit("index"))],
 )
 def index_repository(
     repository_id: uuid.UUID,

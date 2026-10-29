@@ -61,7 +61,7 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(CodemindError)
     async def codemind_error(request: Request, exc: CodemindError) -> JSONResponse:
-        return _error(request, exc.status_code, exc.code, exc.message)
+        return _error(request, exc.status_code, exc.code, exc.message, headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:

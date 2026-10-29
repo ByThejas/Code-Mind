@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     patch_max_changed_lines: int = 400
     patch_context_tokens: int = 6_000
 
+    # Requests per workspace per minute for the costly endpoints (README "Rate limits"). Counted in
+    # Redis; 0 turns a limit off. If Redis is unreachable requests are let through and a warning logged.
+    rate_limit_enabled: bool = True
+    rate_limit_model_per_minute: int = 10  # questions and patch drafts (local model calls)
+    rate_limit_sandbox_per_minute: int = 5  # test runs
+    rate_limit_index_per_minute: int = 10  # imports and re-index requests (GitHub API calls)
+
     # Test runs in a throwaway Docker container (docs/sandbox-design.md). Off until turned on.
     sandbox_enabled: bool = False
     sandbox_queue: str = "sandbox"
