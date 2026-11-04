@@ -188,6 +188,8 @@ mypy codemind
 
 Database tests run against `TEST_DATABASE_URL` (default: the `codemind_test` database on the local compose Postgres; create it once with `docker compose exec postgres createdb -U codemind codemind_test`). They are skipped when Postgres is not reachable, except in CI (when `CI` is set), where an unreachable database fails the run instead. Each run drops and recreates that database's schema, so never point it at real data.
 
+Every endpoint that takes an id is checked for workspace isolation in `tests/test_tenant_isolation.py`: a second workspace calls it with the first workspace's ids and must get a `404` that echoes none of them, and the first workspace's data must be unchanged afterwards. A new endpoint with an id in its path fails that file until a case is added for it.
+
 To measure search quality, `python scripts/evaluate_retrieval.py evaluation/datasets/code-mind.v1.json` runs a fixed set of questions about this repository against an indexed copy of it and reports recall, precision and MRR for keyword, graph and vector retrieval. How it works, how to index the right commit, and the recorded baselines are in [docs/evaluation.md](docs/evaluation.md).
 
 From `apps/web`, `npm run build` type-checks and produces a production build in `dist/`.
